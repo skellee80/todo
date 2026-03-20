@@ -1,86 +1,253 @@
 {
-  "$description": "Sample design tokens file for GitFig. Edit this file or replace with your own tokens.",
-  "colors": {
-    "primary": {
-      "$value": "#0066FF",
+  "Text": {
+    "15": {
       "$type": "color",
-      "$description": "Primary brand color"
+      "$value": "#ffffff26"
     },
-    "secondary": {
-      "$value": "#6B7280",
-      "$type": "color"
+    "30": {
+      "$type": "color",
+      "$value": "#ffffff4d"
     },
-    "background": {
-      "default": {
-        "$value": "#FFFFFF",
-        "$type": "color"
-      },
-      "subtle": {
-        "$value": "#F9FAFB",
-        "$type": "color"
-      }
+    "50": {
+      "$type": "color",
+      "$value": "#ffffff80"
     },
-    "text": {
-      "primary": {
-        "$value": "#111827",
-        "$type": "color"
-      },
-      "secondary": {
-        "$value": "#6B7280",
-        "$type": "color"
-      }
+    "70": {
+      "$type": "color",
+      "$value": "#ffffffb2"
     },
-    "success": {
-      "$value": "#10B981",
-      "$type": "color"
-    },
-    "warning": {
-      "$value": "#F59E0B",
-      "$type": "color"
-    },
-    "error": {
-      "$value": "#EF4444",
-      "$type": "color"
+    "100": {
+      "$type": "color",
+      "$value": "#ffffff"
     }
   },
-  "spacing": {
-    "xs": {
-      "$value": 4,
-      "$type": "number"
+  "Fills": {
+    "Danger": {
+      "$type": "color",
+      "$value": "#341924"
     },
-    "sm": {
-      "$value": 8,
-      "$type": "number"
+    "Primary": {
+      "$type": "color",
+      "$value": "#0d6efd"
+    },
+    "Secondary": {
+      "$type": "color",
+      "$value": "#1e293b"
+    },
+    "Danger :hover": {
+      "$type": "color",
+      "$value": "#311822"
+    },
+    "Primary :hover": {
+      "$type": "color",
+      "$value": "#0e79ff"
+    },
+    "Secondary :hover": {
+      "$type": "color",
+      "$value": "#1d2738"
+    }
+  },
+  "Border": {
+    "Primary": {
+      "$type": "color",
+      "$value": {
+        "id": "VariableID:269:24",
+        "type": "VARIABLE_ALIAS"
+      }
+    },
+    "Secondary": {
+      "$type": "color",
+      "$value": {
+        "id": "VariableID:269:25",
+        "type": "VARIABLE_ALIAS"
+      }
+    }
+  },
+  "Labels": {
+    "Danger": {
+      "$type": "color",
+      "$value": "#ff4444"
+    },
+    "Primary": {
+      "$type": "color",
+      "$value": "#ffffff"
+    },
+    "Secondary": {
+      "$type": "color",
+      "$value": "#adbcd4"
+    },
+    "Danger :hover": {
+      "$type": "color",
+      "$value": "#f24141"
+    },
+    "Primary :hover": {
+      "$type": "color",
+      "$value": "#ffffff"
+    },
+    "Secondary :hover": {
+      "$type": "color",
+      "$value": "#a4b3c9"
+    }
+  },
+  "colors": {
+    "text": {
+      "primary": {
+        "$type": "color",
+        "$value": "#111827"
+      },
+      "secondary": {
+        "$type": "color",
+        "$value": "#6b7280"
+      }
+    },
+    "error": {
+      "$type": "color",
+      "$value": "#ef4444"
+    },
+    "primary": {
+      "$type": "color",
+      "$value": "#0066ff",
+      "$description": "Primary brand color"
+    },
+    "success": {
+      "$type": "color",
+      "$value": "#10b981"
+    },
+    "warning": {
+      "$type": "color",
+      "$value": "#f59e0b"
+    },
+    "secondary": {
+      "$type": "color",
+      "$value": "#6b7280"
+    },
+    "background": {
+      "subtle": {
+        "$type": "color",
+        "$value": "#f9fafb"
+      },
+      "default": {
+        "$type": "color",
+        "$value": "#ffffff"
+      }
+    }
+  },
+  "Surface": {
+    "$type": "color",
+    "$value": "#101822"
+  },
+  "spacing": {
+    "lg": {
+      "$type": "number",
+      "$value": 24
     },
     "md": {
-      "$value": 16,
-      "$type": "number"
+      "$type": "number",
+      "$value": 16
     },
-    "lg": {
-      "$value": 24,
-      "$type": "number"
+    "sm": {
+      "$type": "number",
+      "$value": 8
     },
     "xl": {
-      "$value": 32,
-      "$type": "number"
+      "$type": "number",
+      "$value": 32
+    },
+    "xs": {
+      "$type": "number",
+      "$value": 4
+    }
+  },
+  "TextField": {
+    "Surface": {
+      "$type": "color",
+      "$value": {
+        "id": "VariableID:240:589",
+        "type": "VARIABLE_ALIAS"
+      }
+    },
+    "Border :focus": {
+      "$type": "color",
+      "$value": {
+        "id": "VariableID:240:587",
+        "type": "VARIABLE_ALIAS"
+      }
+    },
+    "Border :default": {
+      "$type": "color",
+      "$value": "#2a3546"
+    }
+  },
+  "ListButton": {
+    "Fill": {
+      "Danger": {
+        "$type": "color",
+        "$value": {
+          "id": "VariableID:240:591",
+          "type": "VARIABLE_ALIAS"
+        }
+      },
+      "Default": {
+        "$type": "color",
+        "$value": {
+          "id": "VariableID:240:589",
+          "type": "VARIABLE_ALIAS"
+        }
+      },
+      "Danger :hover": {
+        "$type": "color",
+        "$value": {
+          "id": "VariableID:269:26",
+          "type": "VARIABLE_ALIAS"
+        }
+      },
+      "Default :hover": {
+        "$type": "color",
+        "$value": {
+          "id": "VariableID:269:25",
+          "type": "VARIABLE_ALIAS"
+        }
+      }
+    },
+    "Label": {
+      "Danger": {
+        "$type": "color",
+        "$value": {
+          "id": "VariableID:240:592",
+          "type": "VARIABLE_ALIAS"
+        }
+      },
+      "Default": {
+        "$type": "color",
+        "$value": {
+          "id": "VariableID:266:79",
+          "type": "VARIABLE_ALIAS"
+        }
+      }
+    }
+  },
+  "colorStyles": {
+    "#D9D9D9": {
+      "$type": "color",
+      "$value": "#d9d9d9"
     }
   },
   "borderRadius": {
-    "sm": {
-      "$value": 4,
-      "$type": "number"
+    "lg": {
+      "$type": "number",
+      "$value": 12
     },
     "md": {
-      "$value": 8,
-      "$type": "number"
+      "$type": "number",
+      "$value": 8
     },
-    "lg": {
-      "$value": 12,
-      "$type": "number"
+    "sm": {
+      "$type": "number",
+      "$value": 4
     },
     "full": {
-      "$value": 9999,
-      "$type": "number"
+      "$type": "number",
+      "$value": 9999
     }
   }
 }
