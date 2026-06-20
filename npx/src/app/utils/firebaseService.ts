@@ -386,3 +386,34 @@ export async function updateHomeworkTime(itemId: string, newTime: string): Promi
     notifyHomeworkListeners(updated);
   }
 }
+
+/**
+ * 11. 숙제 필드 일괄/개별 변경 (종료일 설정 및 반복 요일 변경용)
+ */
+export async function updateHomeworkItemFields(
+  itemId: string,
+  fields: Partial<HomeworkItem> & { endDate?: string | null }
+): Promise<void> {
+  if (isFirebaseConfigured && db) {
+    const docRef = doc(db, "homework", itemId);
+    const updateData: any = { ...fields };
+    if (fields.endDate === null) {
+      updateData.endDate = deleteField();
+    }
+    await updateDoc(docRef, updateData);
+  } else {
+    const items = getLocalHomework();
+    const updated = items.map(item => {
+      if (item.id === itemId) {
+        const newItem = { ...item, ...fields };
+        if (fields.endDate === null) {
+          delete newItem.endDate;
+        }
+        return newItem;
+      }
+      return item;
+    });
+    localStorage.setItem("homework_items", JSON.stringify(updated));
+    notifyHomeworkListeners(updated);
+  }
+}

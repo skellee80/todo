@@ -125,28 +125,7 @@ export function HomeworkModal({
             />
           </div>
 
-          {/* 대상 (소윤/소민) */}
-          <div className="form-group">
-            <label className="form-label">👧👦 누구의 숙제인가요?</label>
-            <div style={{ display: "flex", gap: "10px", marginTop: "4px" }}>
-              <button
-                type="button"
-                className={`cute-btn ${kid === "soyoon" ? "primary-soyoon" : ""}`}
-                style={{ flex: 1, border: "2px solid #ff8787" }}
-                onClick={() => setKid("soyoon")}
-              >
-                🌸 소윤이
-              </button>
-              <button
-                type="button"
-                className={`cute-btn ${kid === "somin" ? "primary-somin" : ""}`}
-                style={{ flex: 1, border: "2px solid #4dadf7" }}
-                onClick={() => setKid("somin")}
-              >
-                💧 소민이
-              </button>
-            </div>
-          </div>
+
 
           {/* 시작 날짜 */}
           <div className="form-group">

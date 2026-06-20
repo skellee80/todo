@@ -7,6 +7,7 @@ export interface HomeworkItem {
   isRecurring: boolean;
   recurringDays: number[]; // 0-6 (일요일=0, 월요일=1, ..., 토요일=6)
   alarmOption: string; // "none" 또는 쉼표로 구분된 조합 ("at_time,1_hour,2_hour,3_hour")
+  endDate?: string; // YYYY-MM-DD 형식의 종료일 (반복 일정 분할/종료용)
 }
 
 export interface HomeworkInstanceOverride {
@@ -23,6 +24,11 @@ export interface HomeworkInstanceOverride {
 export function isHomeworkActiveOnDate(item: HomeworkItem, dateStr: string): boolean {
   // 등록 시작일보다 이전 날짜면 비활성
   if (dateStr < item.date) {
+    return false;
+  }
+
+  // 종료일이 있고 그 종료일보다 이후 날짜면 비활성
+  if (item.endDate && dateStr > item.endDate) {
     return false;
   }
 

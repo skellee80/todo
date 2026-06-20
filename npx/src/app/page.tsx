@@ -16,7 +16,8 @@ import {
   deleteCommentOverride,
   saveAlarmOverride,
   updateAlarmOptionAll,
-  updateHomeworkTime
+  updateHomeworkTime,
+  updateHomeworkItemFields
 } from "./utils/firebaseService";
 import { registerPushNotification, unregisterPushNotification, updateAlarmPreference } from "./utils/webPush";
 
@@ -42,6 +43,14 @@ export default function HomeworkDiaryHome() {
     itemId: string;
     title: string;
     time: string;
+  } | null>(null);
+  const [editingRecurring, setEditingRecurring] = useState<{
+    itemId: string;
+    title: string;
+    recurringDays: number[];
+  } | null>(null);
+  const [deletingHomework, setDeletingHomework] = useState<{
+    item: HomeworkItem;
   } | null>(null);
 
   // 알람 설정 변경 시 모달의 로컬 상태
@@ -163,6 +172,15 @@ export default function HomeworkDiaryHome() {
     return `${y}-${m}-${r}`;
   };
 
+  const getDayBeforeStr = (dateStr: string): string => {
+    const d = new Date(dateStr);
+    d.setDate(d.getDate() - 1);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const r = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${r}`;
+  };
+
   const selectedDateStr = getLocalDateStr(selectedDate);
 
   // 날짜 요일 한글 텍스트 반환
@@ -181,27 +199,7 @@ export default function HomeworkDiaryHome() {
     }
   };
 
-  // 숙제 삭제 처리 (서비스 위임)
-  const handleDeleteHomework = async (itemId: string, isRecurring: boolean) => {
-    try {
-      if (isRecurring) {
-        const confirmAll = window.confirm("이 숙제는 매주 반복되는 일정입니다.\n'확인'을 누르면 앞으로의 모든 반복 일정을 삭제하고,\n'취소'를 누르면 오늘 하루만 숙제에서 제외(삭제)합니다.");
-        if (confirmAll) {
-          await deleteHomeworkItem(itemId);
-        } else {
-          // 오늘 하루만 숙제 제외 처리 (댓글 사유 오버라이드로 제외 표기)
-          await saveCommentOverride(itemId, selectedDateStr, "🚫 이번 숙제 패스! (이 항목은 제외되었습니다)");
-        }
-      } else {
-        if (window.confirm("이 숙제를 삭제할까요?")) {
-          await deleteHomeworkItem(itemId);
-        }
-      }
-    } catch (e) {
-      console.error("숙제 삭제 실패:", e);
-      alert("숙제를 삭제하지 못했습니다.");
-    }
-  };
+
 
   // 완료 상태 토글 처리 (서비스 위임)
   const handleToggleComplete = async (itemId: string, currentCompleted: boolean) => {
@@ -440,7 +438,16 @@ export default function HomeworkDiaryHome() {
                             ⏰ {item.time}
                           </span>
                           {item.isRecurring && (
-                            <span className="meta-badge recurring">
+                            <span 
+                              className="meta-badge recurring"
+                              style={{ cursor: "pointer" }}
+                              title="클릭하여 반복 요일을 수정하세요"
+                              onClick={() => setEditingRecurring({
+                                itemId: item.id,
+                                title: item.title,
+                                recurringDays: [...item.recurringDays]
+                              })}
+                            >
                               🔁 매주 ({item.recurringDays.map((d) => ["일", "월", "화", "수", "목", "금", "토"][d]).join(", ")})
                             </span>
                           )}
@@ -468,7 +475,7 @@ export default function HomeworkDiaryHome() {
                     {/* 숙제 삭제 버튼 */}
                     <button
                       className="delete-btn"
-                      onClick={() => handleDeleteHomework(item.id, item.isRecurring)}
+                      onClick={() => setDeletingHomework({ item })}
                       title="숙제 삭제"
                     >
                       🗑️
@@ -695,6 +702,222 @@ export default function HomeworkDiaryHome() {
                 }}
               >
                 변경 완료 🎉
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 반복 요일 변경 모달창 */}
+      {editingRecurring && (
+        <div className="modal-overlay" onClick={() => setEditingRecurring(null)}>
+          <div 
+            className={`modal-content ${currentKid === 'soyoon' ? 'theme-soyoon' : 'theme-somin'}`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h3 className="modal-title">🔁 반복 요일 변경</h3>
+              <button className="close-btn" onClick={() => setEditingRecurring(null)}>
+                ✖
+              </button>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label" style={{ fontSize: "1.1rem" }}>✍ {editingRecurring.title}</label>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">🗓️ 어떤 요일에 반복할까요?</label>
+              <div className="days-select-grid">
+                {[
+                  { label: "일", value: 0 },
+                  { label: "월", value: 1 },
+                  { label: "화", value: 2 },
+                  { label: "수", value: 3 },
+                  { label: "목", value: 4 },
+                  { label: "금", value: 5 },
+                  { label: "토", value: 6 },
+                ].map((day) => {
+                  const isChecked = editingRecurring.recurringDays.includes(day.value);
+                  return (
+                    <label
+                      key={day.value}
+                      className={`day-checkbox-label ${isChecked ? "checked" : ""}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => {
+                          const days = editingRecurring.recurringDays.includes(day.value)
+                            ? editingRecurring.recurringDays.filter((d) => d !== day.value)
+                            : [...editingRecurring.recurringDays, day.value];
+                          setEditingRecurring({ ...editingRecurring, recurringDays: days });
+                        }}
+                      />
+                      {day.label}
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div style={{ fontSize: "0.85rem", color: "#868e96", marginBottom: "12px", lineHeight: "1.4" }}>
+              * 변경하시면 <strong>오늘({selectedDate.getFullYear()}년 {selectedDate.getMonth() + 1}월 {selectedDate.getDate()}일) 이후</strong> 날짜부터 새 설정이 적용되며, 이전 숙제 내역은 원래대로 안전하게 유지됩니다.
+            </div>
+
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="cute-btn"
+                onClick={() => setEditingRecurring(null)}
+                style={{ background: "#e2e8f0", borderBottomColor: "#cbd5e1" }}
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                className={`cute-btn ${currentKid === "soyoon" ? "primary-soyoon" : "primary-somin"}`}
+                onClick={async () => {
+                  if (editingRecurring.recurringDays.length === 0) {
+                    alert("반복할 요일을 하나 이상 선택해 주세요! 🗓️");
+                    return;
+                  }
+                  
+                  const originalItem = homeworkItems.find(h => h.id === editingRecurring.itemId);
+                  if (!originalItem) return;
+
+                  try {
+                    if (selectedDateStr <= originalItem.date) {
+                      await updateHomeworkItemFields(originalItem.id, {
+                        recurringDays: editingRecurring.recurringDays
+                      });
+                    } else {
+                      const yesterday = getDayBeforeStr(selectedDateStr);
+                      await updateHomeworkItemFields(originalItem.id, {
+                        endDate: yesterday
+                      });
+
+                      await addHomeworkItem({
+                        title: originalItem.title,
+                        kid: originalItem.kid,
+                        date: selectedDateStr,
+                        time: originalItem.time,
+                        isRecurring: true,
+                        recurringDays: editingRecurring.recurringDays,
+                        alarmOption: originalItem.alarmOption
+                      });
+                    }
+                    alert("반복 요일이 정상적으로 변경되었습니다. 🔁");
+                  } catch (e) {
+                    console.error(e);
+                    alert("반복 일정 변경에 실패했습니다.");
+                  }
+                  setEditingRecurring(null);
+                }}
+              >
+                변경 완료 🎉
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 숙제 삭제 모달창 */}
+      {deletingHomework && (
+        <div className="modal-overlay" onClick={() => setDeletingHomework(null)}>
+          <div 
+            className={`modal-content ${currentKid === 'soyoon' ? 'theme-soyoon' : 'theme-somin'}`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h3 className="modal-title">🗑️ 숙제 삭제</h3>
+              <button className="close-btn" onClick={() => setDeletingHomework(null)}>
+                ✖
+              </button>
+            </div>
+
+            <div className="form-group">
+              <p style={{ fontSize: "1.1rem", color: "#4a3b32", lineHeight: "1.5" }}>
+                <strong>[{deletingHomework.item.title}]</strong> 숙제를 삭제하시겠습니까?
+              </p>
+              {deletingHomework.item.isRecurring && (
+                <p style={{ fontSize: "0.85rem", color: "#e03131", marginTop: "6px" }}>
+                  * 이 숙제는 매주 반복되는 숙제입니다.
+                </p>
+              )}
+            </div>
+
+            <div className="modal-actions" style={{ flexDirection: "column", gap: "8px", marginTop: "16px" }}>
+              {deletingHomework.item.isRecurring ? (
+                <>
+                  <button
+                    type="button"
+                    className={`cute-btn ${currentKid === "soyoon" ? "primary-soyoon" : "primary-somin"}`}
+                    style={{ width: "100%", padding: "12px 0" }}
+                    onClick={async () => {
+                      try {
+                        await saveCommentOverride(deletingHomework.item.id, selectedDateStr, "🚫 이번 숙제 패스! (이 항목은 제외되었습니다)");
+                        alert("오늘 하루 숙제가 제외되었습니다. 🚫");
+                      } catch (e) {
+                        console.error(e);
+                        alert("오늘 일정 제외 실패");
+                      }
+                      setDeletingHomework(null);
+                    }}
+                  >
+                    🚫 오늘 하루만 숙제에서 제외
+                  </button>
+                  <button
+                    type="button"
+                    className="cute-btn"
+                    style={{ width: "100%", padding: "12px 0", background: "#ff8787", color: "white", borderBottomColor: "#fa5252" }}
+                    onClick={async () => {
+                      try {
+                        if (selectedDateStr <= deletingHomework.item.date) {
+                          await deleteHomeworkItem(deletingHomework.item.id);
+                        } else {
+                          const yesterday = getDayBeforeStr(selectedDateStr);
+                          await updateHomeworkItemFields(deletingHomework.item.id, {
+                            endDate: yesterday
+                          });
+                        }
+                        alert("오늘 이후의 모든 반복 일정이 삭제되었습니다. 🗑️");
+                      } catch (e) {
+                        console.error(e);
+                        alert("이후 일정 삭제 실패");
+                      }
+                      setDeletingHomework(null);
+                    }}
+                  >
+                    🗑️ 오늘부터 이후 일정 모두 삭제
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  className={`cute-btn ${currentKid === "soyoon" ? "primary-soyoon" : "primary-somin"}`}
+                  style={{ width: "100%", padding: "12px 0" }}
+                  onClick={async () => {
+                    try {
+                      await deleteHomeworkItem(deletingHomework.item.id);
+                      alert("숙제가 삭제되었습니다. 🗑️");
+                    } catch (e) {
+                      console.error(e);
+                      alert("숙제 삭제 실패");
+                    }
+                    setDeletingHomework(null);
+                  }}
+                >
+                  🗑️ 삭제하기
+                </button>
+              )}
+              <button
+                type="button"
+                className="cute-btn"
+                onClick={() => setDeletingHomework(null)}
+                style={{ width: "100%", padding: "12px 0", background: "#e2e8f0", borderBottomColor: "#cbd5e1" }}
+              >
+                취소
               </button>
             </div>
           </div>
