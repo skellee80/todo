@@ -35,7 +35,7 @@ export default function HomeworkDiaryHome() {
   const [editingAlarm, setEditingAlarm] = useState<{
     itemId: string;
     dateStr: string;
-    currentAlarm: "none" | "at_time" | "10_min" | "30_min" | "1_hour";
+    currentAlarm: string;
     isRecurring: boolean;
   } | null>(null);
   const [editingTime, setEditingTime] = useState<{
@@ -45,9 +45,7 @@ export default function HomeworkDiaryHome() {
   } | null>(null);
 
   // 알람 설정 변경 시 모달의 로컬 상태
-  const [tempAlarmOption, setTempAlarmOption] = useState<
-    "none" | "at_time" | "10_min" | "30_min" | "1_hour"
-  >("none");
+  const [tempAlarms, setTempAlarms] = useState<string[]>([]);
   const [applyToAll, setApplyToAll] = useState(false);
 
   // 각 숙제의 사유 입력창을 제어하기 위한 로컬 상태 (itemId -> text)
@@ -268,7 +266,9 @@ export default function HomeworkDiaryHome() {
       currentAlarm: currentOption,
       isRecurring: item.isRecurring,
     });
-    setTempAlarmOption(currentOption);
+    
+    const initialAlarms = currentOption && currentOption !== "none" ? currentOption.split(",") : [];
+    setTempAlarms(initialAlarms);
     setApplyToAll(!item.isRecurring); // 단발성이면 선택 불필요하므로 true 고정
   };
 
@@ -277,6 +277,7 @@ export default function HomeworkDiaryHome() {
     if (!editingAlarm) return;
 
     const { itemId, dateStr, isRecurring, currentAlarm } = editingAlarm;
+    const finalAlarmOption = tempAlarms.length > 0 ? tempAlarms.join(",") : "none";
 
     try {
       if (isRecurring && applyToAll) {
@@ -293,10 +294,10 @@ export default function HomeworkDiaryHome() {
             }
           }
         }
-        await updateAlarmOptionAll(itemId, tempAlarmOption);
+        await updateAlarmOptionAll(itemId, finalAlarmOption);
       } else {
         // 이번 일정에만 개별 적용
-        await saveAlarmOverride(itemId, dateStr, tempAlarmOption);
+        await saveAlarmOverride(itemId, dateStr, finalAlarmOption);
       }
     } catch (e) {
       console.error("알람 변경 실패:", e);
@@ -395,10 +396,18 @@ export default function HomeworkDiaryHome() {
 
               // 알람 레이블 변환
               let alarmText = "알람 없음";
-              if (activeAlarmOption === "at_time") alarmText = "정시 알람";
-              else if (activeAlarmOption === "10_min") alarmText = "10분 전 알람";
-              else if (activeAlarmOption === "30_min") alarmText = "30분 전 알람";
-              else if (activeAlarmOption === "1_hour") alarmText = "1시간 전 알람";
+              if (activeAlarmOption && activeAlarmOption !== "none") {
+                const parts = activeAlarmOption.split(",");
+                const labels = parts.map(part => {
+                  const trimmed = part.trim();
+                  if (trimmed === "at_time") return "정시";
+                  if (trimmed === "1_hour") return "1시간 전";
+                  if (trimmed === "2_hour") return "2시간 전";
+                  if (trimmed === "3_hour") return "3시간 전";
+                  return trimmed;
+                });
+                alarmText = labels.join(", ") + " 알람";
+              }
 
               return (
                 <div key={item.id} className={`homework-item-card ${isCompleted ? "completed" : ""}`}>
@@ -425,7 +434,7 @@ export default function HomeworkDiaryHome() {
                           <span 
                             className="meta-badge time"
                             style={{ cursor: "pointer" }}
-                            title="클릭하여 숙제 시작 시간을 변경하세요"
+                            title="클릭하여 숙제 완료 시간을 변경하세요"
                             onClick={() => handleEditHomeworkTime(item)}
                           >
                             ⏰ {item.time}
@@ -555,19 +564,37 @@ export default function HomeworkDiaryHome() {
             </div>
 
             <div className="form-group">
-              <label className="form-label">미리 알림 방식 선택</label>
-              <select
-                className="form-input"
-                value={tempAlarmOption}
-                onChange={(e) => setTempAlarmOption(e.target.value as any)}
-                style={{ background: "#ffffff", appearance: "auto" }}
-              >
-                <option value="none">알림 없음</option>
-                <option value="at_time">정시에 알려주기</option>
-                <option value="10_min">10분 전에 알려주기</option>
-                <option value="30_min">30분 전에 알려주기</option>
-                <option value="1_hour">1시간 전에 알려주기</option>
-              </select>
+              <label className="form-label">미리 알림 설정 (중복 선택 가능)</label>
+              <div className="days-select-grid" style={{ gridTemplateColumns: "repeat(4, 1fr)" }}>
+                {[
+                  { label: "정시", value: "at_time" },
+                  { label: "1시간 전", value: "1_hour" },
+                  { label: "2시간 전", value: "2_hour" },
+                  { label: "3시간 전", value: "3_hour" }
+                ].map((opt) => {
+                  const isChecked = tempAlarms.includes(opt.value);
+                  return (
+                    <label
+                      key={opt.value}
+                      className={`day-checkbox-label ${isChecked ? "checked" : ""}`}
+                      style={{ padding: "10px 2px", textAlign: "center" }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => {
+                          if (isChecked) {
+                            setTempAlarms(tempAlarms.filter(a => a !== opt.value));
+                          } else {
+                            setTempAlarms([...tempAlarms, opt.value]);
+                          }
+                        }}
+                      />
+                      {opt.label}
+                    </label>
+                  );
+                })}
+              </div>
             </div>
 
             {editingAlarm.isRecurring && (
@@ -628,7 +655,7 @@ export default function HomeworkDiaryHome() {
             </div>
 
             <div className="form-group">
-              <label className="form-label">⏰ 숙제 시작 시간</label>
+              <label className="form-label">⏰ 숙제 완료 시간</label>
               <input
                 type="time"
                 className="form-input"

@@ -116,58 +116,75 @@ export function AlarmMonitor({ homeworkItems, overrides }: AlarmMonitorProps) {
           ? dayOverride.alarmOverride 
           : item.alarmOption;
 
-        if (activeAlarmOption === "none") continue;
+        if (!activeAlarmOption || activeAlarmOption === "none") continue;
 
-        // 숙제 시작 시분 파싱
-        const [schHour, schMin] = item.time.split(":").map(Number);
-        const schMinutes = schHour * 60 + schMin;
+        const options = activeAlarmOption.split(",");
+        let triggeredAnAlarm = false;
 
-        // 알람 옵션에 따른 분 오프셋 계산
-        let offset = 0;
-        let alarmLabel = "정시";
-        if (activeAlarmOption === "10_min") {
-          offset = 10;
-          alarmLabel = "10분 전";
-        } else if (activeAlarmOption === "30_min") {
-          offset = 30;
-          alarmLabel = "30분 전";
-        } else if (activeAlarmOption === "1_hour") {
-          offset = 60;
-          alarmLabel = "1시간 전";
-        }
+        for (const option of options) {
+          const trimmedOpt = option.trim();
+          if (!trimmedOpt) continue;
 
-        const targetAlarmMinutes = schMinutes - offset;
-
-        // 오늘 이미 울렸는지 체크
-        const triggerKey = `${item.id}_${todayStr}`;
-        if (triggeredAlarmsRef.current[triggerKey]) continue;
-
-        // 현재 시간이 알람 시간 이상이고, 숙제 시작 시간 이후 30분 이내인 경우 작동
-        // (지나치게 과거의 알람이 페이지 열자마자 울리는 것 방지)
-        if (nowMinutes >= targetAlarmMinutes && nowMinutes <= schMinutes + 30) {
-          // 알람 트리거!
-          triggeredAlarmsRef.current[triggerKey] = true;
-          
-          // 로컬스토리지에 저장
-          try {
-            localStorage.setItem(
-              `triggered_alarms_${todayStr}`,
-              JSON.stringify(triggeredAlarmsRef.current)
-            );
-          } catch (e) {
-            console.error(e);
+          // 알람 옵션에 따른 분 오프셋 계산
+          let offset = 0;
+          let alarmLabel = "정시";
+          if (trimmedOpt === "at_time") {
+            offset = 0;
+            alarmLabel = "정시";
+          } else if (trimmedOpt === "1_hour") {
+            offset = 60;
+            alarmLabel = "1시간 전";
+          } else if (trimmedOpt === "2_hour") {
+            offset = 120;
+            alarmLabel = "2시간 전";
+          } else if (trimmedOpt === "3_hour") {
+            offset = 180;
+            alarmLabel = "3시간 전";
+          } else {
+            continue; // 지원되지 않는 옵션 스킵
           }
 
-          // 소리 재생 및 상태 설정
-          playChime();
-          setActiveAlarm({
-            homeworkId: item.id,
-            title: item.title,
-            kid: item.kid,
-            time: item.time,
-            alarmLabel,
-          });
-          break; // 여러 개가 동시 작동하더라도 하나씩 처리하도록 브레이크
+          // 숙제 완료 시간 파싱
+          const [schHour, schMin] = item.time.split(":").map(Number);
+          const schMinutes = schHour * 60 + schMin;
+          const targetAlarmMinutes = schMinutes - offset;
+
+          // 오늘 특정 알람 옵션이 이미 울렸는지 체크
+          const triggerKey = `${item.id}_${todayStr}_${trimmedOpt}`;
+          if (triggeredAlarmsRef.current[triggerKey]) continue;
+
+          // 현재 시간이 알람 시간 이상이고, 숙제 완료 시간 이후 30분 이내인 경우 작동
+          // (지나치게 과거의 알람이 페이지 열자마자 울리는 것 방지)
+          if (nowMinutes >= targetAlarmMinutes && nowMinutes <= schMinutes + 30) {
+            // 알람 트리거!
+            triggeredAlarmsRef.current[triggerKey] = true;
+            
+            // 로컬스토리지에 저장
+            try {
+              localStorage.setItem(
+                `triggered_alarms_${todayStr}`,
+                JSON.stringify(triggeredAlarmsRef.current)
+              );
+            } catch (e) {
+              console.error(e);
+            }
+
+            // 소리 재생 및 상태 설정
+            playChime();
+            setActiveAlarm({
+              homeworkId: item.id,
+              title: item.title,
+              kid: item.kid,
+              time: item.time,
+              alarmLabel,
+            });
+            triggeredAnAlarm = true;
+            break; // 해당 아이템의 한 가지 알람이 울리면 일단 브레이크
+          }
+        }
+
+        if (triggeredAnAlarm) {
+          break; // 여러 개가 동시 작동하더라도 10초 주기마다 하나씩 처리하도록 브레이크
         }
       }
     }, 10000);
@@ -188,9 +205,9 @@ export function AlarmMonitor({ homeworkItems, overrides }: AlarmMonitorProps) {
         <p className="alarm-message">
           <strong>{kidName}</strong>의 <strong>[{activeAlarm.title}]</strong> 숙제<br />
           {activeAlarm.alarmLabel === "정시" ? (
-            <>지금 <strong>시작할 시간(정시)</strong>입니다!</>
+            <>지금 <strong>완료할 시간(정시)</strong>입니다!</>
           ) : (
-            <>시작 <strong>{activeAlarm.alarmLabel}</strong>입니다!</>
+            <>완료 <strong>{activeAlarm.alarmLabel}</strong>입니다!</>
           )} ({activeAlarm.time} 예정)
         </p>
         <button

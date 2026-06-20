@@ -6,7 +6,7 @@ export interface HomeworkItem {
   time: string; // HH:MM (예: "14:30")
   isRecurring: boolean;
   recurringDays: number[]; // 0-6 (일요일=0, 월요일=1, ..., 토요일=6)
-  alarmOption: 'none' | 'at_time' | '10_min' | '30_min' | '1_hour';
+  alarmOption: string; // "none" 또는 쉼표로 구분된 조합 ("at_time,1_hour,2_hour,3_hour")
 }
 
 export interface HomeworkInstanceOverride {
@@ -14,7 +14,7 @@ export interface HomeworkInstanceOverride {
   date: string; // YYYY-MM-DD
   completed: boolean;
   comment?: string;
-  alarmOverride?: 'none' | 'at_time' | '10_min' | '30_min' | '1_hour';
+  alarmOverride?: string; // "none" 또는 쉼표로 구분된 조합 ("at_time,1_hour,2_hour,3_hour")
 }
 
 /**

@@ -21,7 +21,7 @@ const DEFAULT_HOMEWORK: HomeworkItem[] = [
     time: "15:00",
     isRecurring: true,
     recurringDays: [2, 4], // 화, 목
-    alarmOption: "30_min",
+    alarmOption: "1_hour",
   },
   {
     id: "dummy-2",
@@ -41,7 +41,7 @@ const DEFAULT_HOMEWORK: HomeworkItem[] = [
     time: "14:30",
     isRecurring: true,
     recurringDays: [1, 3, 5], // 월, 수, 금
-    alarmOption: "10_min",
+    alarmOption: "at_time,1_hour",
   },
   {
     id: "dummy-4",
@@ -315,7 +315,7 @@ export async function deleteCommentOverride(itemId: string, dateStr: string): Pr
 export async function saveAlarmOverride(
   itemId: string, 
   dateStr: string, 
-  alarmOption: "none" | "at_time" | "10_min" | "30_min" | "1_hour"
+  alarmOption: string
 ): Promise<void> {
   const docId = `${dateStr}_${itemId}`;
 
@@ -345,7 +345,7 @@ export async function saveAlarmOverride(
  */
 export async function updateAlarmOptionAll(
   itemId: string, 
-  alarmOption: "none" | "at_time" | "10_min" | "30_min" | "1_hour"
+  alarmOption: string
 ): Promise<void> {
   if (isFirebaseConfigured && db) {
     const docRef = doc(db, "homework", itemId);

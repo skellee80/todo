@@ -28,9 +28,7 @@ export function HomeworkModal({
   const [recurringDays, setRecurringDays] = useState<number[]>([]);
 
   // 알람 설정 상태
-  const [alarmOption, setAlarmOption] = useState<
-    "none" | "at_time" | "10_min" | "30_min" | "1_hour"
-  >("none");
+  const [selectedAlarms, setSelectedAlarms] = useState<string[]>([]);
 
   // 모달이 열릴 때마다 필드 초기화
   useEffect(() => {
@@ -51,7 +49,7 @@ export function HomeworkModal({
       const currentDayOfWeek = defaultDate.getDay();
       setRecurringDays([currentDayOfWeek]);
       
-      setAlarmOption("none");
+      setSelectedAlarms([]);
     }
   }, [isOpen, defaultKid, defaultDate]);
 
@@ -94,7 +92,7 @@ export function HomeworkModal({
       time: timeStr,
       isRecurring,
       recurringDays: isRecurring ? recurringDays : [],
-      alarmOption,
+      alarmOption: selectedAlarms.length > 0 ? selectedAlarms.join(",") : "none",
     });
     onClose();
   };
@@ -164,7 +162,7 @@ export function HomeworkModal({
 
           {/* 숙제 시간 (시/분) */}
           <div className="form-group">
-            <label className="form-label">⏰ 숙제 시작 시간</label>
+            <label className="form-label">⏰ 숙제 완료 시간</label>
             <input
               type="time"
               className="form-input"
@@ -213,19 +211,37 @@ export function HomeworkModal({
 
           {/* 알람 설정 */}
           <div className="form-group">
-            <label className="form-label">🔔 미리 알림 설정</label>
-            <select
-              className="form-input"
-              value={alarmOption}
-              onChange={(e) => setAlarmOption(e.target.value as any)}
-              style={{ background: "#ffffff", appearance: "auto" }}
-            >
-              <option value="none">알림 없음</option>
-              <option value="at_time">정시에 알려주기</option>
-              <option value="10_min">10분 전에 알려주기</option>
-              <option value="30_min">30분 전에 알려주기</option>
-              <option value="1_hour">1시간 전에 알려주기</option>
-            </select>
+            <label className="form-label">🔔 미리 알림 설정 (중복 선택 가능)</label>
+            <div className="days-select-grid" style={{ gridTemplateColumns: "repeat(4, 1fr)" }}>
+              {[
+                { label: "정시", value: "at_time" },
+                { label: "1시간 전", value: "1_hour" },
+                { label: "2시간 전", value: "2_hour" },
+                { label: "3시간 전", value: "3_hour" }
+              ].map((opt) => {
+                const isChecked = selectedAlarms.includes(opt.value);
+                return (
+                  <label
+                    key={opt.value}
+                    className={`day-checkbox-label ${isChecked ? "checked" : ""}`}
+                    style={{ padding: "10px 2px", textAlign: "center" }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={() => {
+                        if (isChecked) {
+                          setSelectedAlarms(selectedAlarms.filter(a => a !== opt.value));
+                        } else {
+                          setSelectedAlarms([...selectedAlarms, opt.value]);
+                        }
+                      }}
+                    />
+                    {opt.label}
+                  </label>
+                );
+              })}
+            </div>
           </div>
 
           {/* 저장 및 취소 */}

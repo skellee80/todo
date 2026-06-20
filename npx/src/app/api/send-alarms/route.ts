@@ -81,42 +81,50 @@ export async function GET(req: NextRequest) {
       // 특별한 사유로 패스("🚫 이번 숙제 패스") 상태여도 패스
       if (overrideData?.comment?.includes("🚫")) continue;
 
-      // 최종 적용할 알람 등급 추출
       const activeAlarmOption = overrideData?.alarmOverride !== undefined
         ? overrideData.alarmOverride
         : item.alarmOption;
 
-      if (activeAlarmOption === "none") continue;
+      if (!activeAlarmOption || activeAlarmOption === "none") continue;
 
-      // 4. 숙제 시작 예정 분 계산
-      const [schHour, schMin] = item.time.split(":").map(Number);
-      const schMinutes = schHour * 60 + schMin;
+      const options = activeAlarmOption.split(",");
+      for (const option of options) {
+        const trimmedOpt = option.trim();
+        if (!trimmedOpt) continue;
 
-      // 알람 등급에 따른 예약 분 환산
-      let offset = 0;
-      let alarmLabel = "정시";
-      if (activeAlarmOption === "10_min") {
-        offset = 10;
-        alarmLabel = "10분 전";
-      } else if (activeAlarmOption === "30_min") {
-        offset = 30;
-        alarmLabel = "30분 전";
-      } else if (activeAlarmOption === "1_hour") {
-        offset = 60;
-        alarmLabel = "1시간 전";
-      }
+        let offset = 0;
+        let alarmLabel = "정시";
+        if (trimmedOpt === "at_time") {
+          offset = 0;
+          alarmLabel = "정시";
+        } else if (trimmedOpt === "1_hour") {
+          offset = 60;
+          alarmLabel = "1시간 전";
+        } else if (trimmedOpt === "2_hour") {
+          offset = 120;
+          alarmLabel = "2시간 전";
+        } else if (trimmedOpt === "3_hour") {
+          offset = 180;
+          alarmLabel = "3시간 전";
+        } else {
+          continue; // 알 수 없는 옵션 스킵
+        }
 
-      const targetAlarmMinutes = schMinutes - offset;
+        // 숙제 완료 시간 분 계산
+        const [schHour, schMin] = item.time.split(":").map(Number);
+        const schMinutes = schHour * 60 + schMin;
+        const targetAlarmMinutes = schMinutes - offset;
 
-      // 현재 시각 분이 알람 예약 분과 일치하는지 판별
-      if (currentMinutesKST === targetAlarmMinutes) {
-        activeAlarms.push({
-          title: item.title,
-          kid: item.kid,
-          kidLabel: item.kid === "soyoon" ? "소윤이" : "소민이",
-          time: item.time,
-          alarmLabel
-        });
+        // 현재 시각 분이 알람 예약 분과 일치하는지 판별
+        if (currentMinutesKST === targetAlarmMinutes) {
+          activeAlarms.push({
+            title: item.title,
+            kid: item.kid,
+            kidLabel: item.kid === "soyoon" ? "소윤이" : "소민이",
+            time: item.time,
+            alarmLabel
+          });
+        }
       }
     }
 
@@ -156,8 +164,8 @@ export async function GET(req: NextRequest) {
           notification: {
             title: `⏰ 숙제 시간 알림 [${alarm.kidLabel}]`,
             body: alarm.alarmLabel === "정시"
-              ? `${alarm.kidLabel}의 [${alarm.title}] 숙제 지금 시작할 시간(정시)입니다! (${alarm.time} 예정) 💪`
-              : `${alarm.kidLabel}의 [${alarm.title}] 숙제 시작 ${alarm.alarmLabel}입니다! (${alarm.time} 예정) 💪`
+              ? `${alarm.kidLabel}의 [${alarm.title}] 숙제 지금 완료할 시간(정시)입니다! (${alarm.time} 예정) 💪`
+              : `${alarm.kidLabel}의 [${alarm.title}] 숙제 완료 ${alarm.alarmLabel}입니다! (${alarm.time} 예정) 💪`
           },
           data: {
             link: `${origin}/`
