@@ -1,0 +1,16 @@
+{
+  "short_name": "숙제다이어리",
+  "name": "소소한 가족의 숙제 다이어리",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ],
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#ffca28",
+  "background_color": "#fcf8f2",
+  "gcm_sender_id": "103953570507"
+}

@@ -17,6 +17,7 @@ import {
   saveAlarmOverride,
   updateAlarmOptionAll
 } from "./utils/firebaseService";
+import { registerPushNotification } from "./utils/webPush";
 
 export default function HomeworkDiaryHome() {
   const [currentKid, setCurrentKid] = useState<"soyoon" | "somin">("soyoon");
@@ -62,10 +63,31 @@ export default function HomeworkDiaryHome() {
     };
   }, []);
 
+  // 기동 시 이미 권한이 동의되어 있다면 토큰 자동 갱신
+  useEffect(() => {
+    if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
+      registerPushNotification().catch(err => console.error("자동 푸시 갱신 실패:", err));
+    }
+  }, []);
+
   // 테마 바디 클래스 업데이트
   useEffect(() => {
     document.body.className = `theme-${currentKid}`;
   }, [currentKid]);
+
+  // 실시간 알림 등록 핸들러
+  const handleRequestPush = async () => {
+    try {
+      const token = await registerPushNotification();
+      if (token) {
+        alert("실시간 스마트폰 알림 연동에 성공했습니다! 🎉\n이제 브라우저 창을 닫아도 시간에 맞춰 알림이 전송됩니다. 🔔");
+      } else {
+        alert("알림 설정에 실패했습니다. 파이어베이스 웹 푸시 VAPID 인증서 키 설정을 확인해 주세요.");
+      }
+    } catch (error) {
+      alert("알림 권한이 거부되었거나 설정 중 오류가 발생했습니다. 브라우저 설정에서 이 사이트의 알림 권한을 확인해 주세요.");
+    }
+  };
 
   // 날짜 문자열 변환 유틸리티 (로컬 기준 YYYY-MM-DD)
   const getLocalDateStr = (d: Date) => {
@@ -219,6 +241,17 @@ export default function HomeworkDiaryHome() {
       <header className="app-header">
         <h1 className="app-title">🏡 소소한 가족의 📝 숙제 다이어리</h1>
         <p className="app-subtitle">하루하루 스스로 계획하고 실천해 나가요!</p>
+        
+        {/* 실시간 웹 푸시 알림 등록 버튼 */}
+        {isFirebaseConfigured && (
+          <button 
+            className={`cute-btn ${currentKid === "soyoon" ? "primary-soyoon" : "primary-somin"}`}
+            style={{ marginTop: "12px", fontSize: "0.9rem" }}
+            onClick={handleRequestPush}
+          >
+            🔔 실시간 스마트폰 알림 켜기
+          </button>
+        )}
       </header>
 
       {/* 소윤이 & 소민이 토글 영역 */}

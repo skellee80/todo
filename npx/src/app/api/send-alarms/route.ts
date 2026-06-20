@@ -1,0 +1,164 @@
+import { NextRequest, NextResponse } from "next/server";
+import { getApps, getApp, initializeApp, cert } from "firebase-admin/app";
+import { getFirestore } from "firebase-admin/firestore";
+import { getMessaging } from "firebase-admin/messaging";
+
+let adminDb: any = null;
+let adminMessaging: any = null;
+
+try {
+  // 파이어베이스 어드민 초기화 (서버 가동 용도)
+  if (getApps().length === 0) {
+    const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT;
+    if (serviceAccount) {
+      // 로컬/비서버 환경용 명시적 서비스 계정 주입 설정
+      initializeApp({
+        credential: cert(JSON.parse(serviceAccount))
+      });
+    } else {
+      // 파이어베이스 앱 호스팅(구글 Cloud Run) 환경에서는 기본 서비스 계정 자격이 자동 연동됨
+      initializeApp();
+    }
+  }
+  const app = getApp();
+  adminDb = getFirestore(app);
+  adminMessaging = getMessaging(app);
+} catch (e) {
+  console.warn("파이어베이스 어드민 SDK 초기화 경고 (환경 변수가 없어 데모 모드로 실행됩니다):", e);
+}
+
+export async function GET(req: NextRequest) {
+  // 보안 검사: 외부 크론 스케줄러가 아닌 임의 호출 방지를 위해 간단한 인증 키 확인 설정 가능
+  // (현재는 쉬운 등록을 위해 기본 오픈해 두되, 어드민 설정이 유효한지 우선 검사합니다.)
+  if (!adminDb || !adminMessaging) {
+    return NextResponse.json(
+      { success: false, message: "파이어베이스 어드민이 활성화되지 않은 로컬 모드 상태입니다." },
+      { status: 500 }
+    );
+  }
+
+  try {
+    // 1. 한국 표준시(KST) 구하기 (UTC+9)
+    const now = new Date(new Date().getTime() + 9 * 60 * 60 * 1000);
+    const y = now.getUTCFullYear();
+    const m = String(now.getUTCMonth() + 1).padStart(2, "0");
+    const d = String(now.getUTCDate()).padStart(2, "0");
+    const dateStr = `${y}-${m}-${d}`;
+
+    const currentHour = now.getUTCHours();
+    const currentMin = now.getUTCMinutes();
+    const currentMinutesKST = currentHour * 60 + currentMin;
+    const dayOfWeek = now.getUTCDay(); // 0(일)~6(토)
+
+    console.log(`[send-alarms] 한국 시간 체크: ${dateStr} ${currentHour}:${currentMin} (요일코드: ${dayOfWeek})`);
+
+    // 2. 전체 숙제 목록 로드
+    const homeworkSnap = await adminDb.collection("homework").get();
+    const activeAlarms: Array<{ title: string; kid: string; time: string; alarmLabel: string }> = [];
+
+    for (const doc of homeworkSnap.docs) {
+      const item = doc.data();
+      const itemId = doc.id;
+
+      // 오늘 활성화된 숙제인지 검사
+      if (dateStr < item.date) continue;
+      
+      let isTodayActive = false;
+      if (!item.isRecurring) {
+        isTodayActive = (item.date === dateStr);
+      } else {
+        isTodayActive = item.recurringDays.includes(dayOfWeek);
+      }
+
+      if (!isTodayActive) continue;
+
+      // 3. 오늘 날짜 오버라이드 내역 확인 (완료 여부, 개별 알람)
+      const overrideDoc = await adminDb.collection("overrides").doc(`${dateStr}_${itemId}`).get();
+      const overrideData = overrideDoc.exists ? overrideDoc.data() : null;
+
+      // 이미 오늘 완료한 숙제면 패스
+      if (overrideData?.completed === true) continue;
+      // 특별한 사유로 패스("🚫 이번 숙제 패스") 상태여도 패스
+      if (overrideData?.comment?.includes("🚫")) continue;
+
+      // 최종 적용할 알람 등급 추출
+      const activeAlarmOption = overrideData?.alarmOverride !== undefined
+        ? overrideData.alarmOverride
+        : item.alarmOption;
+
+      if (activeAlarmOption === "none") continue;
+
+      // 4. 숙제 시작 예정 분 계산
+      const [schHour, schMin] = item.time.split(":").map(Number);
+      const schMinutes = schHour * 60 + schMin;
+
+      // 알람 등급에 따른 예약 분 환산
+      let offset = 0;
+      let alarmLabel = "정시";
+      if (activeAlarmOption === "10_min") {
+        offset = 10;
+        alarmLabel = "10분 전";
+      } else if (activeAlarmOption === "30_min") {
+        offset = 30;
+        alarmLabel = "30분 전";
+      } else if (activeAlarmOption === "1_hour") {
+        offset = 60;
+        alarmLabel = "1시간 전";
+      }
+
+      const targetAlarmMinutes = schMinutes - offset;
+
+      // 현재 시각 분이 알람 예약 분과 일치하는지 판별
+      if (currentMinutesKST === targetAlarmMinutes) {
+        activeAlarms.push({
+          title: item.title,
+          kid: item.kid === "soyoon" ? "소윤이" : "소민이",
+          time: item.time,
+          alarmLabel
+        });
+      }
+    }
+
+    // 5. 발송할 알람이 있다면 전체 기기 토큰 가져오기
+    if (activeAlarms.length > 0) {
+      const devicesSnap = await adminDb.collection("devices").get();
+      const tokens: string[] = [];
+      devicesSnap.forEach((d: any) => {
+        const t = d.data().token;
+        if (t) tokens.push(t);
+      });
+
+      if (tokens.length > 0) {
+        // 알람 대상별로 푸시 전송
+        for (const alarm of activeAlarms) {
+          const message = {
+            notification: {
+              title: `⏰ 숙제 시간 알림 [${alarm.kid}]`,
+              body: `${alarm.kid}의 [${alarm.title}] 숙제 시작 ${alarm.alarmLabel}입니다! (${alarm.time} 예정) 💪`
+            },
+            tokens: tokens
+          };
+
+          const response = await adminMessaging.sendEachForMulticast(message);
+          console.log(`[send-alarms] 푸시 발송 결과 성공수: ${response.successCount}, 실패수: ${response.failureCount}`);
+        }
+
+        return NextResponse.json({
+          success: true,
+          message: `성공적으로 ${activeAlarms.length}개의 알람에 대해 푸시를 전송했습니다.`,
+          alarmsSent: activeAlarms
+        });
+      } else {
+        console.log("[send-alarms] 발송할 숙제 알람은 있으나, 등록된 기기 토큰이 존재하지 않습니다.");
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: "체크 완료. 이번 분에는 발송할 알람 대상이 없습니다."
+    });
+  } catch (err: any) {
+    console.error("[send-alarms] API 작업 에러:", err);
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+  }
+}

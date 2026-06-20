@@ -22,3 +22,60 @@ const firebaseConfig = {
   appId: "1:343328000049:web:8a7174514946402a10ad10",
   measurementId: "G-5W8X0WQ41X"
 };
+
+클라우드 메시징 키 = BI6OSuaW57aj-Zbb_9q5UcFkCsMxk1fMpI70ltSCSMlxEFOIgtxgjkdX7UX_SqiFu-ga5l6PjfIiwFl-mdRurY8
+
+NEXT_PUBLIC_FIREBASE_API_KEY=여기에_apiKey_값_입력
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=여기에_authDomain_값_입력
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=여기에_projectId_값_입력
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=여기에_storageBucket_값_입력
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=여기에_messagingSenderId_값_입력
+NEXT_PUBLIC_FIREBASE_APP_ID=여기에_appId_값_입력
+
+ 파이어베이스 & 깃허브 연동 설정 순서 총정리 (Cheat Sheet)
+1단계: 클라우드 인프라 세팅 (파이어베이스 콘솔)
+가장 먼저 데이터베이스를 담을 클라우드 서버 공간을 만들고 보안 자격을 설정했습니다.
+
+프로젝트 생성: 파이어베이스 콘솔에서 프로젝트(family-homework-diary) 개설.
+Firestore 데이터베이스 활성화:
+서버 위치를 서울(asia-northeast3)로 설정.
+테스트를 위해 보안 규칙을 **[테스트 모드]**로 설정하여 외부(내 컴퓨터 및 호스팅 서버)에서 데이터에 읽기/쓰기가 가능하도록 개방.
+웹앱 등록 및 열쇠 키(Config) 발급:
+프로젝트 내에 '웹앱'을 등록하여, 내 앱 전용 접속 정보(열쇠 꾸러미)인 firebaseConfig 객체(apiKey, projectId, appId 등)를 확인하고 메모해 둠.
+2단계: 로컬 개발 환경 비밀키 세팅 (내 컴퓨터 .env.local)
+내 컴퓨터에서 프로그램이 실행될 때, 파이어베이스 금고를 열 수 있도록 접속 비밀 키를 로컬 환경에 숨겨두는 작업입니다.
+
+환경 변수 파일 생성:
+Next.js 프로젝트가 들어있는 test2/npx/ 폴더에 .env.local 텍스트 파일 생성.
+키 바인딩:
+발급받은 구성 키들을 아래의 접두사(NEXT_PUBLIC_)를 붙여 선언 및 저장. (※ NEXT_PUBLIC_을 앞에 붙여야만 Next.js 브라우저 화면(클라이언트)에서 해당 키를 인식할 수 있습니다.)
+env
+NEXT_PUBLIC_FIREBASE_API_KEY=값
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=값
+NEXT_PUBLIC_FIREBASE_APP_ID=값
+...
+3단계: 원격 저장소 업로드 (깃허브 연계)
+코드를 인터넷 저장소에 백업하고, 파이어베이스 호스팅이 코드를 가져갈 수 있도록 연결 다리를 만드는 과정입니다.
+
+로컬 깃 초기화: 내 컴퓨터 프로젝트 폴더(test2)를 깃(Git) 저장소로 선언.
+명령어: git init
+깃허브 저장소 생성: 깃허브 웹사이트에서 비어있는 새 저장소(레포지토리) 개설.
+로컬과 원격 저장소 연결: 내 컴퓨터 깃에 깃허브 주소를 'origin'이라는 이름으로 연결.
+명령어: git remote add origin 내_깃허브_주소
+코드 업로드 (Push): 원격 저장소에 이미 초기 파일이 존재해 충돌했을 때, 내 컴퓨터 코드를 기준으로 강제 강결합하여 밀어 넣음.
+명령어: git push -u origin main -f
+4단계: 클라우드 빌드 및 배포 자동화 (App Hosting 연동)
+깃허브에 올라간 소스코드를 빌드(조립)하고, 서버 환경에서도 파이어베이스 데이터베이스에 붙을 수 있도록 설정하는 최종 배포 단계입니다.
+
+App Hosting 생성: 파이어베이스 메뉴에서 App Hosting을 생성하고 내 깃허브 계정을 연동.
+저장소 및 브랜치 선택: 방금 코드를 올린 깃허브 저장소와 main 브랜치를 선택.
+루트 디렉토리 설정 (매우 중요):
+Next.js의 설정 파일(package.json, next.config.mjs)들이 루트(test2)가 아닌 하위 폴더 npx에 들어있으므로, 루트 디렉토리를 npx로 지정.
+이를 통해 파이어베이스 서버가 프로젝트 빌드 명령어를 실행할 폴더 위치를 정확히 인식하게 됨.
+호스팅 서버용 환경 변수(Environment Variables) 설정:
+로컬의 .env.local은 내 컴퓨터에서만 도는 비밀번호이므로, 파이어베이스 호스팅 클라우드 서버용 비밀번호를 따로 설정해 주어야 함.
+파이어베이스 App Hosting 설정 화면으로 이동하여 2단계의 키 항목들(NEXT_PUBLIC_FIREBASE_API_KEY 등)을 그대로 등록해 준 뒤 재배포 실행.
+도메인 확인: 파이어베이스가 빌드 및 배포를 완료한 뒤 발급해 주는 고유의 웹 주소(.web.app 등)로 접속 테스트 진행.
+💡 한 줄 요약 흐름
+파이어베이스 DB 세팅(1단계) ➔ 내 컴퓨터에 비밀키 입력(2단계) ➔ 코드를 깃허브에 업로드(3단계) ➔ 파이어베이스 호스팅에 깃허브를 연결하고 서버용 비밀키를 등록하여 배포(4단계)
+

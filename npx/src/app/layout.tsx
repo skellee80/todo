@@ -18,6 +18,7 @@ export default function RootLayout({
           href="https://fonts.googleapis.com/css2?family=Fredoka:wght@300..700&family=Jua&family=Gamja+Flower&display=swap"
           rel="stylesheet"
         />
+        <link rel="manifest" href="/manifest.json" />
       </head>
       <body>
         {children}
