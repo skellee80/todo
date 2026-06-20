@@ -25,3 +25,27 @@ if (apiKey && projectId && messagingSenderId) {
 } else {
   console.warn('[firebase-messaging-sw.js] 파이어베이스 연결 구성 정보가 부족하여 초기화하지 못했습니다.');
 }
+
+// 알림 노티바 클릭 시 웹사이트 이동 및 기존 탭 포커싱 처리
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close(); // 알림 배너 닫기
+
+  // 현재 사이트의 기본 주소 구하기 (예: https://todo--sosohomwork.asia-east1.hosted.app/)
+  const targetUrl = self.location.origin + '/';
+
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+      // 1. 이미 열려 있는 다이어리 탭이 있는지 확인
+      for (let i = 0; i < windowClients.length; i++) {
+        const client = windowClients[i];
+        if (client.url.startsWith(targetUrl) && 'focus' in client) {
+          return client.focus(); // 기존 탭을 앞으로 띄우기
+        }
+      }
+      // 2. 열려 있는 탭이 없다면 새 창으로 다이어리 열기
+      if (clients.openWindow) {
+        return clients.openWindow(targetUrl);
+      }
+    })
+  );
+});
