@@ -417,3 +417,34 @@ export async function updateHomeworkItemFields(
     notifyHomeworkListeners(updated);
   }
 }
+
+/**
+ * 12. 특정 날짜의 숙제 삭제(제외) 여부 저장
+ */
+export async function setDeletedOverride(
+  itemId: string,
+  dateStr: string,
+  deleted: boolean
+): Promise<void> {
+  const docId = `${dateStr}_${itemId}`;
+
+  if (isFirebaseConfigured && db) {
+    const docRef = doc(db, "overrides", docId);
+    await setDoc(docRef, {
+      homeworkId: itemId,
+      date: dateStr,
+      deleted: deleted
+    }, { merge: true });
+  } else {
+    const ovs = getLocalOverrides();
+    if (!ovs[dateStr]) {
+      ovs[dateStr] = {};
+    }
+    ovs[dateStr][itemId] = {
+      ...(ovs[dateStr][itemId] || { homeworkId: itemId, date: dateStr, completed: false }),
+      deleted: deleted
+    };
+    localStorage.setItem("homework_overrides", JSON.stringify(ovs));
+    notifyOverridesListeners(ovs);
+  }
+}

@@ -225,7 +225,10 @@ export function CalendarView({
           // 해당 날짜에 활성화된 숙제 리스트 필터링 (현재 활성화된 아이 기준)
           const activeHomework = homeworkItems.filter((item) => {
             if (item.kid !== currentKid) return false;
-            return isHomeworkActiveOnDate(item, key);
+            if (!isHomeworkActiveOnDate(item, key)) return false;
+            const dayOverride = overrides[key]?.[item.id];
+            if (dayOverride && dayOverride.deleted) return false;
+            return true;
           });
 
           const dayOfWeek = date.getDay();

@@ -17,7 +17,8 @@ import {
   saveAlarmOverride,
   updateAlarmOptionAll,
   updateHomeworkTime,
-  updateHomeworkItemFields
+  updateHomeworkItemFields,
+  setDeletedOverride
 } from "./utils/firebaseService";
 import { registerPushNotification, unregisterPushNotification, updateAlarmPreference } from "./utils/webPush";
 
@@ -59,6 +60,7 @@ export default function HomeworkDiaryHome() {
 
   // 각 숙제의 사유 입력창을 제어하기 위한 로컬 상태 (itemId -> text)
   const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
+  const [openCommentInputs, setOpenCommentInputs] = useState<Record<string, boolean>>({});
 
   // 파이어베이스 / 로컬스토리지 실시간 구독 설정
   useEffect(() => {
@@ -210,17 +212,18 @@ export default function HomeworkDiaryHome() {
     }
   };
 
-  // 사유 댓글 추가 처리 (프롬프트 버전 - 누적 작성 지원)
-  const handleAddCommentPrompt = async (itemId: string, existingComment?: string) => {
-    const promptMsg = "지연 사유를 입력해 주세요:";
-    const text = window.prompt(promptMsg);
-    if (text === null) return;
+  // 사유 댓글 추가 처리 (인라인 입력 필드용)
+  const handleAddCommentInline = async (itemId: string, existingComment?: string) => {
+    const text = commentInputs[itemId] || "";
     const trimmed = text.trim();
     if (!trimmed) return;
-    
+
     const newComment = existingComment ? `${existingComment}\n${trimmed}` : trimmed;
     try {
       await saveCommentOverride(itemId, selectedDateStr, newComment);
+      // 입력창 비우고 닫기
+      setCommentInputs((prev) => ({ ...prev, [itemId]: "" }));
+      setOpenCommentInputs((prev) => ({ ...prev, [itemId]: false }));
     } catch (e) {
       console.error("사유 저장 실패:", e);
     }
@@ -306,7 +309,13 @@ export default function HomeworkDiaryHome() {
 
   // 선택된 날짜 및 현재 아이(소윤/소민) 기준 숙제 목록 필터링
   const activeHomeworkList = homeworkItems
-    .filter((item) => item.kid === currentKid && isHomeworkActiveOnDate(item, selectedDateStr))
+    .filter((item) => {
+      const isActive = item.kid === currentKid && isHomeworkActiveOnDate(item, selectedDateStr);
+      if (!isActive) return false;
+      const dayOverride = overrides[selectedDateStr]?.[item.id];
+      if (dayOverride && dayOverride.deleted) return false;
+      return true;
+    })
     // 정렬: 시간 순
     .sort((a, b) => a.time.localeCompare(b.time));
 
@@ -463,7 +472,12 @@ export default function HomeworkDiaryHome() {
                             <span 
                               className="meta-badge comment-btn" 
                               style={{ cursor: "pointer" }}
-                              onClick={() => handleAddCommentPrompt(item.id, comment)}
+                              onClick={() => {
+                                setOpenCommentInputs(prev => ({
+                                  ...prev,
+                                  [item.id]: !prev[item.id]
+                                }));
+                              }}
                             >
                               💬 댓글
                             </span>
@@ -481,6 +495,35 @@ export default function HomeworkDiaryHome() {
                       🗑️
                     </button>
                   </div>
+
+                  {/* 댓글 직접 입력 영역 */}
+                  {openCommentInputs[item.id] && (
+                    <div className="comment-input-row" style={{ marginTop: "8px", marginBottom: "8px" }}>
+                      <input
+                        type="text"
+                        className="comment-input"
+                        placeholder="댓글 또는 사유를 입력하세요..."
+                        value={commentInputs[item.id] || ""}
+                        onChange={(e) => setCommentInputs({
+                          ...commentInputs,
+                          [item.id]: e.target.value
+                        })}
+                        onKeyDown={async (e) => {
+                          if (e.key === 'Enter') {
+                            await handleAddCommentInline(item.id, comment);
+                          }
+                        }}
+                        autoFocus
+                      />
+                      <button
+                        className={`cute-btn ${currentKid === "soyoon" ? "primary-soyoon" : "primary-somin"}`}
+                        style={{ padding: "6px 12px", borderRadius: "12px", fontSize: "0.85rem" }}
+                        onClick={() => handleAddCommentInline(item.id, comment)}
+                      >
+                        등록
+                      </button>
+                    </div>
+                  )}
 
                   {/* 사유 댓글 영역 */}
                   {comment && (
@@ -856,16 +899,16 @@ export default function HomeworkDiaryHome() {
                     style={{ width: "100%", padding: "12px 0" }}
                     onClick={async () => {
                       try {
-                        await saveCommentOverride(deletingHomework.item.id, selectedDateStr, "🚫 이번 숙제 패스! (이 항목은 제외되었습니다)");
-                        alert("오늘 하루 숙제가 제외되었습니다. 🚫");
+                        await setDeletedOverride(deletingHomework.item.id, selectedDateStr, true);
+                        alert("오늘 하루 숙제가 삭제되었습니다. 🗑️");
                       } catch (e) {
                         console.error(e);
-                        alert("오늘 일정 제외 실패");
+                        alert("오늘 일정 삭제 실패");
                       }
                       setDeletingHomework(null);
                     }}
                   >
-                    🚫 오늘 하루만 숙제에서 제외
+                    🗑️ 오늘 하루만 숙제 삭제
                   </button>
                   <button
                     type="button"
