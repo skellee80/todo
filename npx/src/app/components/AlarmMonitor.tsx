@@ -87,12 +87,24 @@ export function AlarmMonitor({ homeworkItems, overrides }: AlarmMonitorProps) {
       // 오늘 몇 분이 지났는지 계산
       const nowMinutes = now.getHours() * 60 + now.getMinutes();
 
+      // 현재 브라우저의 알림 선호도 확인 (localStorage)
+      let pref: "soyoon" | "somin" | "both" = "both";
+      try {
+        const storedPref = localStorage.getItem("alarm_preference");
+        if (storedPref === "soyoon" || storedPref === "somin" || storedPref === "both") {
+          pref = storedPref;
+        }
+      } catch (e) {}
+
       // 오늘 활성화된 숙제 리스트 조회
       const todaysHomeworks = homeworkItems.filter((item) =>
         isHomeworkActiveOnDate(item, todayStr)
       );
 
       for (const item of todaysHomeworks) {
+        // 알림 수신 설정에 맞지 않는 아이의 숙제 알람은 스킵 (노티바 차단과 일치하도록 처리)
+        if (pref !== "both" && pref !== item.kid) continue;
+
         // 이미 완료된 숙제는 알람 패스
         const dayOverride = overrides[todayStr]?.[item.id];
         const isCompleted = dayOverride ? dayOverride.completed : false;

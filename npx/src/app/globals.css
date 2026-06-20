@@ -9,7 +9,7 @@ body {
   font-family: 'Fredoka', 'Jua', 'Gamja Flower', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   color: #333333;
   min-height: 100vh;
-  padding: 20px;
+  padding: 10px 20px 20px 20px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -51,11 +51,11 @@ body.theme-somin {
 /* 타이틀 헤더 */
 .app-header {
   text-align: center;
-  padding: 12px 0 6px 0;
+  padding: 6px 0 3px 0;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
 }
 
 .app-title {

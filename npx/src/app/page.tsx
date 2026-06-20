@@ -15,7 +15,8 @@ import {
   saveCommentOverride,
   deleteCommentOverride,
   saveAlarmOverride,
-  updateAlarmOptionAll
+  updateAlarmOptionAll,
+  updateHomeworkTime
 } from "./utils/firebaseService";
 import { registerPushNotification, unregisterPushNotification, updateAlarmPreference } from "./utils/webPush";
 
@@ -208,16 +209,39 @@ export default function HomeworkDiaryHome() {
     }
   };
 
-  // 사유 댓글 추가 처리 (프롬프트 버전)
-  const handleAddCommentPrompt = async (itemId: string) => {
-    const text = window.prompt("지연 사유를 입력해 주세요:");
+  // 사유 댓글 추가 처리 (프롬프트 버전 - 누적 작성 지원)
+  const handleAddCommentPrompt = async (itemId: string, existingComment?: string) => {
+    const promptMsg = existingComment
+      ? `기존 사유: ${existingComment}\n추가로 등록할 사유를 입력해 주세요 (기존 사유 뒤에 덧붙여집니다):`
+      : "지연 사유를 입력해 주세요:";
+    const text = window.prompt(promptMsg);
     if (text === null) return;
     const trimmed = text.trim();
     if (!trimmed) return;
+    
+    const newComment = existingComment ? `${existingComment} / ${trimmed}` : trimmed;
     try {
-      await saveCommentOverride(itemId, selectedDateStr, trimmed);
+      await saveCommentOverride(itemId, selectedDateStr, newComment);
     } catch (e) {
       console.error("사유 저장 실패:", e);
+    }
+  };
+
+  // 숙제 시간 변경 처리
+  const handleEditHomeworkTime = async (item: HomeworkItem) => {
+    const newTime = window.prompt("숙제 시작 시간을 변경하시겠습니까? (형식: HH:MM, 예: 14:30)", item.time);
+    if (newTime === null) return;
+    const timeReg = /^([01]\d|2[0-3]):[0-5]\d$/;
+    if (!timeReg.test(newTime.trim())) {
+      alert("올바른 시간 형식(HH:MM)으로 입력해 주세요. (예: 14:30)");
+      return;
+    }
+    try {
+      await updateHomeworkTime(item.id, newTime.trim());
+      alert("숙제 시간이 성공적으로 변경되었습니다. ⏰");
+    } catch (e) {
+      console.error(e);
+      alert("숙제 시간 변경에 실패했습니다.");
     }
   };
 
@@ -397,7 +421,14 @@ export default function HomeworkDiaryHome() {
                       <div className="homework-info">
                         <div className="homework-title">{item.title}</div>
                         <div className="homework-meta">
-                          <span className="meta-badge time">⏰ {item.time}</span>
+                          <span 
+                            className="meta-badge time"
+                            style={{ cursor: "pointer" }}
+                            title="클릭하여 숙제 시작 시간을 변경하세요"
+                            onClick={() => handleEditHomeworkTime(item)}
+                          >
+                            ⏰ {item.time}
+                          </span>
                           {item.isRecurring && (
                             <span className="meta-badge recurring">
                               🔁 매주 ({item.recurringDays.map((d) => ["일", "월", "화", "수", "목", "금", "토"][d]).join(", ")})
@@ -411,11 +442,11 @@ export default function HomeworkDiaryHome() {
                           >
                             🔔 {alarmText} ⚙
                           </span>
-                          {!isCompleted && !comment && (
+                          {!isCompleted && (
                             <span 
                               className="meta-badge comment-btn" 
                               style={{ cursor: "pointer" }}
-                              onClick={() => handleAddCommentPrompt(item.id)}
+                              onClick={() => handleAddCommentPrompt(item.id, comment)}
                             >
                               💬 댓글
                             </span>

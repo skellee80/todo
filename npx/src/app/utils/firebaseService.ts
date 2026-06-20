@@ -364,3 +364,25 @@ export async function updateAlarmOptionAll(
     notifyHomeworkListeners(updated);
   }
 }
+
+/**
+ * 10. 숙제 시작 예정 시간 변경
+ */
+export async function updateHomeworkTime(itemId: string, newTime: string): Promise<void> {
+  if (isFirebaseConfigured && db) {
+    const docRef = doc(db, "homework", itemId);
+    await updateDoc(docRef, {
+      time: newTime
+    });
+  } else {
+    const items = getLocalHomework();
+    const updated = items.map(item => {
+      if (item.id === itemId) {
+        return { ...item, time: newTime };
+      }
+      return item;
+    });
+    localStorage.setItem("homework_items", JSON.stringify(updated));
+    notifyHomeworkListeners(updated);
+  }
+}
