@@ -142,7 +142,9 @@ export async function GET(req: NextRequest) {
           const message = {
             notification: {
               title: `⏰ 숙제 시간 알림 [${alarm.kid}]`,
-              body: `${alarm.kid}의 [${alarm.title}] 숙제 시작 ${alarm.alarmLabel}입니다! (${alarm.time} 예정) 💪`
+              body: alarm.alarmLabel === "정시"
+                ? `${alarm.kid}의 [${alarm.title}] 숙제 지금 시작할 시간(정시)입니다! (${alarm.time} 예정) 💪`
+                : `${alarm.kid}의 [${alarm.title}] 숙제 시작 ${alarm.alarmLabel}입니다! (${alarm.time} 예정) 💪`
             },
             data: {
               link: `${origin}/`

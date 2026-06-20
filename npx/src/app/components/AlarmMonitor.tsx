@@ -175,7 +175,11 @@ export function AlarmMonitor({ homeworkItems, overrides }: AlarmMonitorProps) {
         <h3 className="alarm-title">숙제 알림!</h3>
         <p className="alarm-message">
           <strong>{kidName}</strong>의 <strong>[{activeAlarm.title}]</strong> 숙제<br />
-          시작 <strong>{activeAlarm.alarmLabel}</strong>입니다! ({activeAlarm.time} 예정)
+          {activeAlarm.alarmLabel === "정시" ? (
+            <>지금 <strong>시작할 시간(정시)</strong>입니다!</>
+          ) : (
+            <>시작 <strong>{activeAlarm.alarmLabel}</strong>입니다!</>
+          )} ({activeAlarm.time} 예정)
         </p>
         <button
           className={`cute-btn ${activeAlarm.kid === "soyoon" ? "primary-soyoon" : "primary-somin"}`}

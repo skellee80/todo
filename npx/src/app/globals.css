@@ -60,7 +60,7 @@ body.theme-somin {
 
 .app-title {
   font-family: 'Jua', sans-serif;
-  font-size: 2.5rem;
+  font-size: 1.75rem;
   color: #4a3b32;
   text-shadow: 2px 2px 0px #ffffff, 4px 4px 0px rgba(0,0,0,0.05);
   display: flex;
@@ -94,7 +94,7 @@ body.theme-somin {
 
 .kid-btn {
   font-family: 'Jua', sans-serif;
-  font-size: 1.15rem;
+  font-size: 0.8rem;
   padding: 10px 24px;
   border: none;
   border-radius: 40px;
