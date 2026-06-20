@@ -252,9 +252,10 @@ export function CalendarView({
                 {activeHomework.slice(0, 2).map((item) => {
                   const dayOverride = overrides[key]?.[item.id];
                   const isCompleted = dayOverride ? dayOverride.completed : false;
+                  const finalTitle = dayOverride?.titleOverride || item.title;
                   
                   // 이모지 및 체크 표시 접두사 제거
-                  const cleanTitle = item.title.replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, "").trim();
+                  const cleanTitle = finalTitle.replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, "").trim();
                   return (
                     <div
                       key={item.id}

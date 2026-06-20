@@ -18,7 +18,8 @@ import {
   updateAlarmOptionAll,
   updateHomeworkTime,
   updateHomeworkItemFields,
-  setDeletedOverride
+  setDeletedOverride,
+  saveTitleOverride
 } from "./utils/firebaseService";
 import { registerPushNotification, unregisterPushNotification, updateAlarmPreference } from "./utils/webPush";
 
@@ -44,6 +45,10 @@ export default function HomeworkDiaryHome() {
     itemId: string;
     title: string;
     time: string;
+  } | null>(null);
+  const [editingTitle, setEditingTitle] = useState<{
+    item: HomeworkItem;
+    newTitle: string;
   } | null>(null);
   const [editingRecurring, setEditingRecurring] = useState<{
     itemId: string;
@@ -436,7 +441,17 @@ export default function HomeworkDiaryHome() {
 
                       {/* 숙제 상세 내용 */}
                       <div className="homework-info">
-                        <div className="homework-title">{item.title}</div>
+                        <div 
+                          className="homework-title"
+                          style={{ cursor: "pointer" }}
+                          title="클릭하여 숙제 이름을 변경하세요"
+                          onClick={() => setEditingTitle({
+                            item,
+                            newTitle: dayOverride?.titleOverride || item.title
+                          })}
+                        >
+                          {dayOverride?.titleOverride || item.title}
+                        </div>
                         <div className="homework-meta">
                           <span 
                             className="meta-badge time"
@@ -859,6 +874,131 @@ export default function HomeworkDiaryHome() {
                 }}
               >
                 변경 완료 🎉
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 숙제 이름 변경 모달창 */}
+      {editingTitle && (
+        <div className="modal-overlay" onClick={() => setEditingTitle(null)}>
+          <div 
+            className={`modal-content ${currentKid === 'soyoon' ? 'theme-soyoon' : 'theme-somin'}`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h3 className="modal-title">✍ 숙제 이름 변경</h3>
+              <button className="close-btn" onClick={() => setEditingTitle(null)}>
+                ✖
+              </button>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">✍ 새로운 숙제 이름</label>
+              <input
+                type="text"
+                className="form-input"
+                value={editingTitle.newTitle}
+                onChange={(e) => setEditingTitle({ ...editingTitle, newTitle: e.target.value })}
+                required
+                autoFocus
+              />
+            </div>
+
+            <div className="modal-actions" style={{ flexDirection: "column", gap: "8px", marginTop: "16px" }}>
+              {editingTitle.item.isRecurring ? (
+                <>
+                  <button
+                    type="button"
+                    className={`cute-btn ${currentKid === "soyoon" ? "primary-soyoon" : "primary-somin"}`}
+                    style={{ width: "100%", padding: "12px 0" }}
+                    onClick={async () => {
+                      const newTitle = editingTitle.newTitle.trim();
+                      if (!newTitle) {
+                        alert("숙제 이름을 입력해 주세요! 📝");
+                        return;
+                      }
+                      try {
+                        await saveTitleOverride(editingTitle.item.id, selectedDateStr, newTitle);
+                        alert("오늘 하루 숙제 이름이 변경되었습니다. ✍");
+                      } catch (e) {
+                        console.error(e);
+                        alert("오늘 이름 변경 실패");
+                      }
+                      setEditingTitle(null);
+                    }}
+                  >
+                    오늘 하루만 이름 변경
+                  </button>
+                  <button
+                    type="button"
+                    className="cute-btn"
+                    style={{ width: "100%", padding: "12px 0", background: "#ff8787", color: "white", borderBottomColor: "#fa5252" }}
+                    onClick={async () => {
+                      const newTitle = editingTitle.newTitle.trim();
+                      if (!newTitle) {
+                        alert("숙제 이름을 입력해 주세요! 📝");
+                        return;
+                      }
+                      try {
+                        if (selectedDateStr <= editingTitle.item.date) {
+                          await updateHomeworkItemFields(editingTitle.item.id, { title: newTitle });
+                        } else {
+                          const yesterday = getDayBeforeStr(selectedDateStr);
+                          await updateHomeworkItemFields(editingTitle.item.id, { endDate: yesterday });
+                          await addHomeworkItem({
+                            title: newTitle,
+                            kid: editingTitle.item.kid,
+                            date: selectedDateStr,
+                            time: editingTitle.item.time,
+                            isRecurring: true,
+                            recurringDays: editingTitle.item.recurringDays,
+                            alarmOption: editingTitle.item.alarmOption
+                          });
+                        }
+                        alert("오늘부터 이후 모든 반복 숙제 이름이 변경되었습니다. 🔁");
+                      } catch (e) {
+                        console.error(e);
+                        alert("이후 이름 변경 실패");
+                      }
+                      setEditingTitle(null);
+                    }}
+                  >
+                    오늘부터 이후 일정 모두 변경
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  className={`cute-btn ${currentKid === "soyoon" ? "primary-soyoon" : "primary-somin"}`}
+                  style={{ width: "100%", padding: "12px 0" }}
+                  onClick={async () => {
+                    const newTitle = editingTitle.newTitle.trim();
+                    if (!newTitle) {
+                      alert("숙제 이름을 입력해 주세요! 📝");
+                      return;
+                    }
+                    try {
+                      await updateHomeworkItemFields(editingTitle.item.id, { title: newTitle });
+                      alert("숙제 이름이 변경되었습니다. ✍");
+                    } catch (e) {
+                      console.error(e);
+                      alert("숙제 이름 변경 실패");
+                    }
+                    setEditingTitle(null);
+                  }}
+                >
+                  변경 완료 🎉
+                </button>
+              )}
+              <button
+                type="button"
+                className="cute-btn"
+                onClick={() => setEditingTitle(null)}
+                style={{ width: "100%", padding: "12px 0", background: "#e2e8f0", borderBottomColor: "#cbd5e1" }}
+              >
+                취소
               </button>
             </div>
           </div>

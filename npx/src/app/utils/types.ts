@@ -17,6 +17,7 @@ export interface HomeworkInstanceOverride {
   comment?: string;
   alarmOverride?: string; // "none" 또는 쉼표로 구분된 조합 ("at_time,1_hour,2_hour,3_hour")
   deleted?: boolean; // YYYY-MM-DD 특정 날짜에 삭제(제외) 처리되었는지 여부
+  titleOverride?: string; // 특정 날짜의 숙제 이름 변경(오버라이드)
 }
 
 /**

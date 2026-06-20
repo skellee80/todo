@@ -448,3 +448,34 @@ export async function setDeletedOverride(
     notifyOverridesListeners(ovs);
   }
 }
+
+/**
+ * 13. 특정 날짜의 숙제 이름(타이틀) 오버라이드 저장
+ */
+export async function saveTitleOverride(
+  itemId: string,
+  dateStr: string,
+  titleText: string
+): Promise<void> {
+  const docId = `${dateStr}_${itemId}`;
+
+  if (isFirebaseConfigured && db) {
+    const docRef = doc(db, "overrides", docId);
+    await setDoc(docRef, {
+      homeworkId: itemId,
+      date: dateStr,
+      titleOverride: titleText
+    }, { merge: true });
+  } else {
+    const ovs = getLocalOverrides();
+    if (!ovs[dateStr]) {
+      ovs[dateStr] = {};
+    }
+    ovs[dateStr][itemId] = {
+      ...(ovs[dateStr][itemId] || { homeworkId: itemId, date: dateStr, completed: false }),
+      titleOverride: titleText
+    };
+    localStorage.setItem("homework_overrides", JSON.stringify(ovs));
+    notifyOverridesListeners(ovs);
+  }
+}
