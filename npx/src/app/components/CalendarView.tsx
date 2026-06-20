@@ -3,6 +3,79 @@
 import React, { useState } from "react";
 import { HomeworkItem, HomeworkInstanceOverride, isHomeworkActiveOnDate } from "../utils/types";
 
+// 한국 공휴일 정보 (양력 고정 공휴일)
+const SOLAR_HOLIDAYS = [
+  "01-01", // 신정
+  "03-01", // 삼일절
+  "05-05", // 어린이날
+  "06-06", // 현충일
+  "08-15", // 광복절
+  "10-03", // 개천절
+  "10-09", // 한글날
+  "12-25", // 크리스마스
+];
+
+// 연도별 음력 및 대체 공휴일 목록 (2024~2030)
+const VARIABLE_HOLIDAYS: Record<string, string[]> = {
+  "2024": [
+    "02-09", "02-10", "02-11", "02-12", // 설날 및 대체공휴일
+    "05-15", // 부처님오신날
+    "09-16", "09-17", "09-18", // 추석
+  ],
+  "2025": [
+    "01-28", "01-29", "01-30", // 설날
+    "05-06", // 부처님오신날 대체공휴일
+    "10-05", "10-06", "10-07", "10-08", // 추석 및 대체공휴일
+  ],
+  "2026": [
+    "02-16", "02-17", "02-18", // 설날
+    "03-02", // 삼일절 대체공휴일
+    "05-25", // 부처님오신날 대체공휴일 (부처님오신날 5/24)
+    "06-03", // 지방선거일
+    "08-17", // 광복절 대체공휴일
+    "09-24", "09-25", "09-26", // 추석
+    "10-05", // 개천절 대체공휴일
+  ],
+  "2027": [
+    "02-06", "02-07", "02-08", "02-09", // 설날 및 대체공휴일
+    "05-13", // 부처님오신날
+    "08-16", // 광복절 대체공휴일
+    "09-14", "09-15", "09-16", // 추석
+    "10-04", // 개천절 대체공휴일
+    "10-11", // 한글날 대체공휴일
+    "12-27", // 성탄절 대체공휴일
+  ],
+  "2028": [
+    "01-25", "01-26", "01-27", // 설날
+    "05-02", // 부처님오신날
+    "10-01", "10-02", "10-03", "10-04", // 추석 연휴 및 대체공휴일
+  ],
+  "2029": [
+    "02-12", "02-13", "02-14", // 설날
+    "05-20", "05-21", // 부처님오신날 및 대체공휴일
+    "09-21", "09-22", "09-23", "09-24", // 추석 및 대체공휴일
+  ],
+  "2030": [
+    "02-02", "02-03", "02-04", "02-05", // 설날 및 대체공휴일
+    "05-06", // 어린이날 대체공휴일
+    "05-10", // 부처님오신날
+    "09-11", "09-12", "09-13", // 추석
+    "10-14", // 한글날 대체공휴일
+  ]
+};
+
+function isKoreanHoliday(date: Date): boolean {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  const md = `${m}-${d}`;
+
+  if (SOLAR_HOLIDAYS.includes(md)) return true;
+  const yearHolidays = VARIABLE_HOLIDAYS[String(y)];
+  if (yearHolidays && yearHolidays.includes(md)) return true;
+  return false;
+}
+
 interface CalendarViewProps {
   currentKid: 'soyoon' | 'somin';
   selectedDate: Date;
@@ -152,12 +225,18 @@ export function CalendarView({
             return isHomeworkActiveOnDate(item, key);
           });
 
+          const dayOfWeek = date.getDay();
+          const isSunday = dayOfWeek === 0;
+          const isSaturday = dayOfWeek === 6;
+          const isHoliday = isKoreanHoliday(date);
+          const isRedDay = isSunday || isSaturday || isHoliday;
+
           return (
             <div
               key={key}
               className={`calendar-day-cell ${!isCurrentMonth ? "other-month" : ""} ${
                 isToday ? "today" : ""
-              } ${isSelected ? "selected" : ""}`}
+              } ${isSelected ? "selected" : ""} ${isRedDay ? "red-day" : ""}`}
               onClick={() => setSelectedDate(date)}
             >
               <div className="day-number">{date.getDate()}</div>

@@ -129,7 +129,14 @@ export async function GET(req: NextRequest) {
       });
 
       if (tokens.length > 0) {
-        const origin = req.nextUrl.origin;
+        const forwardedHost = req.headers.get("x-forwarded-host");
+        const host = forwardedHost || req.headers.get("host") || "";
+        let cleanHost = host;
+        if (host.includes("0.0.0.0") || host === "") {
+          cleanHost = "todo--sosohomwork.asia-east1.hosted.app";
+        }
+        const proto = req.headers.get("x-forwarded-proto") || "https";
+        const origin = `${proto}://${cleanHost}`;
         // 알람 대상별로 푸시 전송
         for (const alarm of activeAlarms) {
           const message = {

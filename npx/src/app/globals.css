@@ -238,12 +238,9 @@ body.theme-somin {
   color: #8c786c;
 }
 
-.calendar-header-cell:first-child {
-  color: #ff6b6b;
-}
-
+.calendar-header-cell:first-child,
 .calendar-header-cell:last-child {
-  color: #4dadf7;
+  color: #ff6b6b;
 }
 
 .calendar-day-cell {
@@ -295,12 +292,8 @@ body.theme-somin {
   color: #5c4d43;
 }
 
-.calendar-day-cell:first-child .day-number {
+.calendar-day-cell.red-day .day-number {
   color: #fa5252;
-}
-
-.calendar-day-cell:last-child .day-number {
-  color: #228be6;
 }
 
 .today .day-number {
