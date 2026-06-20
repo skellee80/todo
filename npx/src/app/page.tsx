@@ -319,9 +319,6 @@ export default function HomeworkDiaryHome() {
         <div className="detail-title-row">
           <h3 className="detail-title">
             📅 {selectedDate.getFullYear()}년 {selectedDate.getMonth() + 1}월 {selectedDate.getDate()}일 ({getDayNameKo(selectedDate)})
-            <span style={{ fontSize: "1rem", color: currentKid === "soyoon" ? "#ff8787" : "#4dadf7", fontWeight: "bold", marginLeft: "6px" }}>
-              [{currentKidLabel}]의 할 일
-            </span>
           </h3>
           <button
             className={`cute-btn ${currentKid === "soyoon" ? "primary-soyoon" : "primary-somin"}`}
@@ -424,7 +421,7 @@ export default function HomeworkDiaryHome() {
                           <input
                             type="text"
                             className="comment-input"
-                            placeholder="숙제가 지연되거나 사유가 있으면 입력해 주세요 (예: 학원 보강이 있어요)"
+                            placeholder="사유 입력"
                             value={commentInputs[item.id] || ""}
                             onChange={(e) => setCommentInputs({ ...commentInputs, [item.id]: e.target.value })}
                             onKeyDown={(e) => {
