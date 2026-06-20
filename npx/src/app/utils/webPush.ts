@@ -9,7 +9,7 @@ const VAPID_KEY = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
 /**
  * 웹 푸시 서비스 워커 등록 및 FCM 토큰을 발급받아 Firestore에 저장합니다.
  */
-export async function registerPushNotification(): Promise<string | null> {
+export async function registerPushNotification(preference: "soyoon" | "somin" | "both" = "both"): Promise<string | null> {
   if (typeof window === "undefined" || !("serviceWorker" in navigator) || !("Notification" in window)) {
     console.warn("이 브라우저는 웹 푸시 알림을 지원하지 않습니다.");
     return null;
@@ -64,7 +64,8 @@ export async function registerPushNotification(): Promise<string | null> {
       await setDoc(deviceRef, {
         token: token,
         browser: navigator.userAgent,
-        lastActive: Date.now()
+        lastActive: Date.now(),
+        alarmPreference: preference
       }, { merge: true });
 
       // 로컬 스토리지에 토큰 백업 저장 (해제할 때 사용)
@@ -143,6 +144,31 @@ export async function unregisterPushNotification(): Promise<boolean> {
     return true;
   } catch (error) {
     console.error("푸시 알림 해제 중 예외 발생:", error);
+    return false;
+  }
+}
+
+/**
+ * 웹 푸시 알림 수신 대상 선호도(소윤이만, 소민이만, 둘 다)를 Firestore 및 로컬스토리지에 업데이트합니다.
+ */
+export async function updateAlarmPreference(preference: "soyoon" | "somin" | "both"): Promise<boolean> {
+  if (typeof window === "undefined" || !isFirebaseConfigured || !db) {
+    return false;
+  }
+  const savedToken = localStorage.getItem("fcm_token");
+  if (!savedToken) {
+    return false;
+  }
+  try {
+    const deviceRef = doc(db, "devices", savedToken);
+    await setDoc(deviceRef, {
+      alarmPreference: preference
+    }, { merge: true });
+    localStorage.setItem("alarm_preference", preference);
+    console.log("기기 알림 수신 선호도 변경 완료:", preference);
+    return true;
+  } catch (err) {
+    console.error("기기 알림 선호도 업데이트 오류:", err);
     return false;
   }
 }

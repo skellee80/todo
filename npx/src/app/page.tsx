@@ -17,12 +17,13 @@ import {
   saveAlarmOverride,
   updateAlarmOptionAll
 } from "./utils/firebaseService";
-import { registerPushNotification, unregisterPushNotification } from "./utils/webPush";
+import { registerPushNotification, unregisterPushNotification, updateAlarmPreference } from "./utils/webPush";
 
 export default function HomeworkDiaryHome() {
   const [currentKid, setCurrentKid] = useState<"soyoon" | "somin">("soyoon");
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [isPushSubscribed, setIsPushSubscribed] = useState(false);
+  const [alarmPreference, setAlarmPreference] = useState<"soyoon" | "somin" | "both">("both");
   
   // 핵심 상태 변수 (실시간 DB 연동 대상)
   const [homeworkItems, setHomeworkItems] = useState<HomeworkItem[]>([]);
@@ -70,8 +71,14 @@ export default function HomeworkDiaryHome() {
       const hasToken = !!localStorage.getItem("fcm_token");
       const hasPermission = "Notification" in window && Notification.permission === "granted";
       setIsPushSubscribed(hasToken && hasPermission);
+      
+      const storedPref = localStorage.getItem("alarm_preference") as "soyoon" | "somin" | "both" | null;
+      if (storedPref) {
+        setAlarmPreference(storedPref);
+      }
+
       if (hasPermission) {
-        registerPushNotification().catch(err => console.error("자동 푸시 갱신 실패:", err));
+        registerPushNotification(storedPref || "both").catch(err => console.error("자동 푸시 갱신 실패:", err));
       }
     }
   }, []);
@@ -115,7 +122,7 @@ export default function HomeworkDiaryHome() {
       }
     } else {
       try {
-        const token = await registerPushNotification();
+        const token = await registerPushNotification(alarmPreference);
         if (token) {
           setIsPushSubscribed(true);
           alert("실시간 스마트폰 알림 연동에 성공했습니다! 🎉\n이제 브라우저 창을 닫아도 시간에 맞춰 알림이 전송됩니다. 🔔");
@@ -125,6 +132,22 @@ export default function HomeworkDiaryHome() {
       } catch (error) {
         alert("알림 권한이 거부되었거나 설정 중 오류가 발생했습니다. 브라우저 설정에서 이 사이트의 알림 권한을 확인해 주세요.");
       }
+    }
+  };
+
+  // 알림 수신 선호도 업데이트 핸들러
+  const handleUpdatePreference = async (pref: "soyoon" | "somin" | "both") => {
+    setAlarmPreference(pref);
+    try {
+      const success = await updateAlarmPreference(pref);
+      if (success) {
+        alert(`알림 수신 대상이 변경되었습니다: ${pref === "soyoon" ? "소윤이만" : pref === "somin" ? "소민이만" : "둘 다"}`);
+      } else {
+        alert("알림 설정 업데이트에 실패했습니다.");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("설정 변경 중 오류가 발생했습니다.");
     }
   };
 
@@ -185,14 +208,14 @@ export default function HomeworkDiaryHome() {
     }
   };
 
-  // 사유 댓글 추가 처리 (서비스 위임)
-  const handleAddComment = async (itemId: string) => {
-    const commentText = commentInputs[itemId]?.trim();
-    if (!commentText) return;
-
+  // 사유 댓글 추가 처리 (프롬프트 버전)
+  const handleAddCommentPrompt = async (itemId: string) => {
+    const text = window.prompt("지연 사유를 입력해 주세요:");
+    if (text === null) return;
+    const trimmed = text.trim();
+    if (!trimmed) return;
     try {
-      await saveCommentOverride(itemId, selectedDateStr, commentText);
-      setCommentInputs({ ...commentInputs, [itemId]: "" });
+      await saveCommentOverride(itemId, selectedDateStr, trimmed);
     } catch (e) {
       console.error("사유 저장 실패:", e);
     }
@@ -388,6 +411,15 @@ export default function HomeworkDiaryHome() {
                           >
                             🔔 {alarmText} ⚙
                           </span>
+                          {!isCompleted && !comment && (
+                            <span 
+                              className="meta-badge comment-btn" 
+                              style={{ cursor: "pointer" }}
+                              onClick={() => handleAddCommentPrompt(item.id)}
+                            >
+                              💬 댓글
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -403,8 +435,8 @@ export default function HomeworkDiaryHome() {
                   </div>
 
                   {/* 사유 댓글 영역 */}
-                  <div className="comment-area">
-                    {comment ? (
+                  {comment && (
+                    <div className="comment-area">
                       <div className="comment-bubble">
                         💬 <strong>사유:</strong> {comment}
                         <span 
@@ -415,30 +447,8 @@ export default function HomeworkDiaryHome() {
                           [지우기]
                         </span>
                       </div>
-                    ) : (
-                      !isCompleted && (
-                        <div className="comment-input-row">
-                          <input
-                            type="text"
-                            className="comment-input"
-                            placeholder="사유 입력"
-                            value={commentInputs[item.id] || ""}
-                            onChange={(e) => setCommentInputs({ ...commentInputs, [item.id]: e.target.value })}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") handleAddComment(item.id);
-                            }}
-                          />
-                          <button
-                            className="cute-btn"
-                            style={{ padding: "6px 12px", fontSize: "0.9rem" }}
-                            onClick={() => handleAddComment(item.id)}
-                          >
-                            등록
-                          </button>
-                        </div>
-                      )
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
               );
             })
@@ -448,7 +458,7 @@ export default function HomeworkDiaryHome() {
 
       {/* 실시간 스마트폰 알림 설정 영역 (페이지 최하단) */}
       {isFirebaseConfigured && (
-        <div style={{ display: "flex", justifyContent: "center", marginTop: "12px", marginBottom: "12px" }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px", marginTop: "12px", marginBottom: "12px" }}>
           <button 
             className={`cute-btn ${currentKid === "soyoon" ? "primary-soyoon" : "primary-somin"}`}
             style={{ fontSize: "1rem", padding: "12px 24px", borderRadius: "20px" }}
@@ -456,6 +466,33 @@ export default function HomeworkDiaryHome() {
           >
             {isPushSubscribed ? "🔕 알림 끄기" : "🔔 알림 받기"}
           </button>
+          
+          {isPushSubscribed && (
+            <div className="pref-selector" style={{ display: "flex", gap: "6px", alignItems: "center", fontSize: "0.9rem", color: "#4a3b32" }}>
+              <span style={{ fontWeight: "bold" }}>🔔 알림 대상:</span>
+              <button 
+                className={`cute-btn ${alarmPreference === "soyoon" ? (currentKid === "soyoon" ? "primary-soyoon" : "primary-somin") : ""}`}
+                style={{ padding: "4px 10px", fontSize: "0.85rem", borderRadius: "10px" }}
+                onClick={() => handleUpdatePreference("soyoon")}
+              >
+                소윤이만
+              </button>
+              <button 
+                className={`cute-btn ${alarmPreference === "somin" ? (currentKid === "soyoon" ? "primary-soyoon" : "primary-somin") : ""}`}
+                style={{ padding: "4px 10px", fontSize: "0.85rem", borderRadius: "10px" }}
+                onClick={() => handleUpdatePreference("somin")}
+              >
+                소민이만
+              </button>
+              <button 
+                className={`cute-btn ${alarmPreference === "both" ? (currentKid === "soyoon" ? "primary-soyoon" : "primary-somin") : ""}`}
+                style={{ padding: "4px 10px", fontSize: "0.85rem", borderRadius: "10px" }}
+                onClick={() => handleUpdatePreference("both")}
+              >
+                둘다 받기
+              </button>
+            </div>
+          )}
         </div>
       )}
 

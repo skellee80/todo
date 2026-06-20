@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
 
     // 2. 전체 숙제 목록 로드
     const homeworkSnap = await adminDb.collection("homework").get();
-    const activeAlarms: Array<{ title: string; kid: string; time: string; alarmLabel: string }> = [];
+    const activeAlarms: Array<{ title: string; kid: string; kidLabel: string; time: string; alarmLabel: string }> = [];
 
     for (const doc of homeworkSnap.docs) {
       const item = doc.data();
@@ -112,67 +112,78 @@ export async function GET(req: NextRequest) {
       if (currentMinutesKST === targetAlarmMinutes) {
         activeAlarms.push({
           title: item.title,
-          kid: item.kid === "soyoon" ? "소윤이" : "소민이",
+          kid: item.kid,
+          kidLabel: item.kid === "soyoon" ? "소윤이" : "소민이",
           time: item.time,
           alarmLabel
         });
       }
     }
 
-    // 5. 발송할 알람이 있다면 전체 기기 토큰 가져오기
+    // 5. 발송할 알람이 있다면 각 기기의 알림 선호도(소윤이만, 소민이만, 둘 다)에 맞게 필터링하여 전송
     if (activeAlarms.length > 0) {
       const devicesSnap = await adminDb.collection("devices").get();
-      const tokens: string[] = [];
-      devicesSnap.forEach((d: any) => {
-        const t = d.data().token;
-        if (t) tokens.push(t);
-      });
-
-      if (tokens.length > 0) {
-        const forwardedHost = req.headers.get("x-forwarded-host");
-        const host = forwardedHost || req.headers.get("host") || "";
-        let cleanHost = host;
-        if (host.includes("0.0.0.0") || host === "") {
-          cleanHost = "todo--sosohomwork.asia-east1.hosted.app";
-        }
-        const proto = req.headers.get("x-forwarded-proto") || "https";
-        const origin = `${proto}://${cleanHost}`;
-        // 알람 대상별로 푸시 전송
-        for (const alarm of activeAlarms) {
-          const message = {
-            notification: {
-              title: `⏰ 숙제 시간 알림 [${alarm.kid}]`,
-              body: alarm.alarmLabel === "정시"
-                ? `${alarm.kid}의 [${alarm.title}] 숙제 지금 시작할 시간(정시)입니다! (${alarm.time} 예정) 💪`
-                : `${alarm.kid}의 [${alarm.title}] 숙제 시작 ${alarm.alarmLabel}입니다! (${alarm.time} 예정) 💪`
-            },
-            data: {
-              link: `${origin}/`
-            },
-            webpush: {
-              notification: {
-                icon: "/favicon.ico",
-                badge: "/favicon.ico"
-              },
-              fcm_options: {
-                link: `${origin}/`
-              }
-            },
-            tokens: tokens
-          };
-
-          const response = await adminMessaging.sendEachForMulticast(message);
-          console.log(`[send-alarms] 푸시 발송 결과 성공수: ${response.successCount}, 실패수: ${response.failureCount}`);
-        }
-
-        return NextResponse.json({
-          success: true,
-          message: `성공적으로 ${activeAlarms.length}개의 알람에 대해 푸시를 전송했습니다.`,
-          alarmsSent: activeAlarms
-        });
-      } else {
-        console.log("[send-alarms] 발송할 숙제 알람은 있으나, 등록된 기기 토큰이 존재하지 않습니다.");
+      
+      const forwardedHost = req.headers.get("x-forwarded-host");
+      const host = forwardedHost || req.headers.get("host") || "";
+      let cleanHost = host;
+      if (host.includes("0.0.0.0") || host === "") {
+        cleanHost = "todo--sosohomwork.asia-east1.hosted.app";
       }
+      const proto = req.headers.get("x-forwarded-proto") || "https";
+      const origin = `${proto}://${cleanHost}`;
+
+      let sentCount = 0;
+
+      // 알람 대상별로 푸시 전송
+      for (const alarm of activeAlarms) {
+        const alarmTokens: string[] = [];
+        devicesSnap.forEach((d: any) => {
+          const deviceData = d.data();
+          const token = deviceData.token;
+          const pref = deviceData.alarmPreference || "both"; // 기본은 둘 다 받기
+          if (token && (pref === "both" || pref === alarm.kid)) {
+            alarmTokens.push(token);
+          }
+        });
+
+        if (alarmTokens.length === 0) {
+          console.log(`[send-alarms] [${alarm.kidLabel}]의 [${alarm.title}] 숙제 알림을 전송할 대상 기기가 없습니다.`);
+          continue;
+        }
+
+        const message = {
+          notification: {
+            title: `⏰ 숙제 시간 알림 [${alarm.kidLabel}]`,
+            body: alarm.alarmLabel === "정시"
+              ? `${alarm.kidLabel}의 [${alarm.title}] 숙제 지금 시작할 시간(정시)입니다! (${alarm.time} 예정) 💪`
+              : `${alarm.kidLabel}의 [${alarm.title}] 숙제 시작 ${alarm.alarmLabel}입니다! (${alarm.time} 예정) 💪`
+          },
+          data: {
+            link: `${origin}/`
+          },
+          webpush: {
+            notification: {
+              icon: "/favicon.ico",
+              badge: "/favicon.ico"
+            },
+            fcm_options: {
+              link: `${origin}/`
+            }
+          },
+          tokens: alarmTokens
+        };
+
+        const response = await adminMessaging.sendEachForMulticast(message);
+        console.log(`[send-alarms] [${alarm.kidLabel}] 푸시 발송 결과 성공수: ${response.successCount}, 실패수: ${response.failureCount}`);
+        sentCount++;
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: `성공적으로 ${sentCount}개의 알람에 대해 푸시를 전송했습니다.`,
+        alarmsSent: activeAlarms
+      });
     }
 
     return NextResponse.json({

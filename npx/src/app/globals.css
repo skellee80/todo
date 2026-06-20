@@ -528,6 +528,20 @@ body.theme-somin {
   color: #d9480f;
 }
 
+.meta-badge.comment-btn {
+  background: #f8f9fa;
+  color: #495057;
+  border: 1px dashed #ced4da;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.meta-badge.comment-btn:hover {
+  background: #e9ecef;
+  border-color: #adb5bd;
+  transform: translateY(-1px);
+}
+
 /* 삭제 버튼 */
 .delete-btn {
   background: none;
