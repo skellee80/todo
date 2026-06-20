@@ -38,6 +38,11 @@ export default function HomeworkDiaryHome() {
     currentAlarm: "none" | "at_time" | "10_min" | "30_min" | "1_hour";
     isRecurring: boolean;
   } | null>(null);
+  const [editingTime, setEditingTime] = useState<{
+    itemId: string;
+    title: string;
+    time: string;
+  } | null>(null);
 
   // 알람 설정 변경 시 모달의 로컬 상태
   const [tempAlarmOption, setTempAlarmOption] = useState<
@@ -211,15 +216,13 @@ export default function HomeworkDiaryHome() {
 
   // 사유 댓글 추가 처리 (프롬프트 버전 - 누적 작성 지원)
   const handleAddCommentPrompt = async (itemId: string, existingComment?: string) => {
-    const promptMsg = existingComment
-      ? `기존 사유: ${existingComment}\n추가로 등록할 사유를 입력해 주세요 (기존 사유 뒤에 덧붙여집니다):`
-      : "지연 사유를 입력해 주세요:";
+    const promptMsg = "지연 사유를 입력해 주세요:";
     const text = window.prompt(promptMsg);
     if (text === null) return;
     const trimmed = text.trim();
     if (!trimmed) return;
     
-    const newComment = existingComment ? `${existingComment} / ${trimmed}` : trimmed;
+    const newComment = existingComment ? `${existingComment}\n${trimmed}` : trimmed;
     try {
       await saveCommentOverride(itemId, selectedDateStr, newComment);
     } catch (e) {
@@ -228,27 +231,25 @@ export default function HomeworkDiaryHome() {
   };
 
   // 숙제 시간 변경 처리
-  const handleEditHomeworkTime = async (item: HomeworkItem) => {
-    const newTime = window.prompt("숙제 시작 시간을 변경하시겠습니까? (형식: HH:MM, 예: 14:30)", item.time);
-    if (newTime === null) return;
-    const timeReg = /^([01]\d|2[0-3]):[0-5]\d$/;
-    if (!timeReg.test(newTime.trim())) {
-      alert("올바른 시간 형식(HH:MM)으로 입력해 주세요. (예: 14:30)");
-      return;
-    }
-    try {
-      await updateHomeworkTime(item.id, newTime.trim());
-      alert("숙제 시간이 성공적으로 변경되었습니다. ⏰");
-    } catch (e) {
-      console.error(e);
-      alert("숙제 시간 변경에 실패했습니다.");
-    }
+  const handleEditHomeworkTime = (item: HomeworkItem) => {
+    setEditingTime({
+      itemId: item.id,
+      title: item.title,
+      time: item.time,
+    });
   };
 
-  // 사유 댓글 삭제 처리 (서비스 위임)
-  const handleDeleteComment = async (itemId: string) => {
+  // 사유 댓글 삭제 처리 (줄 단위 삭제)
+  const handleDeleteCommentLine = async (itemId: string, existingComment: string, lineIndex: number) => {
+    const lines = existingComment.split("\n").filter((line) => line.trim() !== "");
+    lines.splice(lineIndex, 1);
+    const newComment = lines.join("\n");
     try {
-      await deleteCommentOverride(itemId, selectedDateStr);
+      if (newComment === "") {
+        await deleteCommentOverride(itemId, selectedDateStr);
+      } else {
+        await saveCommentOverride(itemId, selectedDateStr, newComment);
+      }
     } catch (e) {
       console.error("사유 삭제 실패:", e);
     }
@@ -467,17 +468,23 @@ export default function HomeworkDiaryHome() {
 
                   {/* 사유 댓글 영역 */}
                   {comment && (
-                    <div className="comment-area">
-                      <div className="comment-bubble">
-                        💬 <strong>사유:</strong> {comment}
-                        <span 
-                          style={{ marginLeft: "8px", color: "#fa5252", cursor: "pointer", fontSize: "0.85rem" }}
-                          onClick={() => handleDeleteComment(item.id)}
-                          title="사유 지우기"
-                        >
-                          [지우기]
-                        </span>
-                      </div>
+                    <div className="comment-area" style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "6px" }}>
+                      {comment.split("\n").map((line, idx) => {
+                        const trimmedLine = line.trim();
+                        if (!trimmedLine) return null;
+                        return (
+                          <div key={idx} className="comment-bubble" style={{ marginBottom: 0 }}>
+                            <span>💬 {trimmedLine}</span>
+                            <span 
+                              style={{ marginLeft: "8px", color: "#fa5252", cursor: "pointer", fontSize: "0.85rem" }}
+                              onClick={() => handleDeleteCommentLine(item.id, comment, idx)}
+                              title="사유 지우기"
+                            >
+                              [지우기]
+                            </span>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -594,6 +601,71 @@ export default function HomeworkDiaryHome() {
               <button
                 className={`cute-btn ${currentKid === "soyoon" ? "primary-soyoon" : "primary-somin"}`}
                 onClick={handleSaveAlarmConfig}
+              >
+                변경 완료 🎉
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 숙제 시간 변경 모달창 */}
+      {editingTime && (
+        <div className="modal-overlay" onClick={() => setEditingTime(null)}>
+          <div 
+            className={`modal-content ${currentKid === 'soyoon' ? 'theme-soyoon' : 'theme-somin'}`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h3 className="modal-title">⏰ 숙제 시간 변경</h3>
+              <button className="close-btn" onClick={() => setEditingTime(null)}>
+                ✖
+              </button>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label" style={{ fontSize: "1.1rem" }}>✍ {editingTime.title}</label>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">⏰ 숙제 시작 시간</label>
+              <input
+                type="time"
+                className="form-input"
+                value={editingTime.time}
+                onChange={(e) => setEditingTime({ ...editingTime, time: e.target.value })}
+                required
+              />
+            </div>
+
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="cute-btn"
+                onClick={() => setEditingTime(null)}
+                style={{ background: "#e2e8f0", borderBottomColor: "#cbd5e1" }}
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                className={`cute-btn ${currentKid === "soyoon" ? "primary-soyoon" : "primary-somin"}`}
+                onClick={async () => {
+                  const newTime = editingTime.time.trim();
+                  const timeReg = /^([01]\d|2[0-3]):[0-5]\d$/;
+                  if (!timeReg.test(newTime)) {
+                    alert("올바른 시간 형식(HH:MM)으로 입력해 주세요. (예: 14:30)");
+                    return;
+                  }
+                  try {
+                    await updateHomeworkTime(editingTime.itemId, newTime);
+                    alert("숙제 시간이 성공적으로 변경되었습니다. ⏰");
+                  } catch (e) {
+                    console.error(e);
+                    alert("숙제 시간 변경에 실패했습니다.");
+                  }
+                  setEditingTime(null);
+                }}
               >
                 변경 완료 🎉
               </button>
