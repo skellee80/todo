@@ -136,6 +136,12 @@ export async function GET(req: NextRequest) {
               title: `⏰ 숙제 시간 알림 [${alarm.kid}]`,
               body: `${alarm.kid}의 [${alarm.title}] 숙제 시작 ${alarm.alarmLabel}입니다! (${alarm.time} 예정) 💪`
             },
+            webpush: {
+              notification: {
+                icon: "/favicon.ico",
+                badge: "/favicon.ico"
+              }
+            },
             tokens: tokens
           };
 
