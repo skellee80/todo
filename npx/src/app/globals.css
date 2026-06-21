@@ -249,7 +249,7 @@ body.theme-somin {
 .calendar-day-cell {
   background: #faf6f0;
   border-radius: 12px;
-  height: 64px;
+  height: 100px;
   overflow: hidden;
   padding: 4px;
   display: flex;

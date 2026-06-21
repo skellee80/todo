@@ -37,19 +37,19 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // 1. 아시아/서울 타임존 기준 정확한 한국 표준시(KST) 시간 구하기
-    const kstDateStr = new Date().toLocaleString("en-US", { timeZone: "Asia/Seoul" });
-    const kstDate = new Date(kstDateStr);
+    // 1. 아시아/서울 타임존 기준 정확한 한국 표준시(KST, UTC+9) 시간 구하기 (서버 환경에 무관)
+    const now = new Date();
+    const kstDate = new Date(now.getTime() + (9 * 60 * 60 * 1000));
 
-    const y = kstDate.getFullYear();
-    const m = String(kstDate.getMonth() + 1).padStart(2, "0");
-    const d = String(kstDate.getDate()).padStart(2, "0");
+    const y = kstDate.getUTCFullYear();
+    const m = String(kstDate.getUTCMonth() + 1).padStart(2, "0");
+    const d = String(kstDate.getUTCDate()).padStart(2, "0");
     const dateStr = `${y}-${m}-${d}`;
 
-    const currentHour = kstDate.getHours();
-    const currentMin = kstDate.getMinutes();
+    const currentHour = kstDate.getUTCHours();
+    const currentMin = kstDate.getUTCMinutes();
     const currentMinutesKST = currentHour * 60 + currentMin;
-    const dayOfWeek = kstDate.getDay(); // 0(일)~6(토)
+    const dayOfWeek = kstDate.getUTCDay(); // 0(일)~6(토)
 
     console.log(`[send-alarms] 한국 시간 체크: ${dateStr} ${currentHour}:${currentMin} (요일코드: ${dayOfWeek})`);
 

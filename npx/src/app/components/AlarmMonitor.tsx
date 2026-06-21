@@ -69,10 +69,51 @@ export function AlarmMonitor({ homeworkItems, overrides }: AlarmMonitorProps) {
     }
   };
 
-  // 1. 아이별 전역 알림 설정 구독
+  const prevSoyoonTimesRef = useRef<string[] | null>(null);
+  const prevSominTimesRef = useRef<string[] | null>(null);
+
+  // 1. 아이별 전역 알림 설정 구독 및 완료 시간 변경 시 오늘 울린 알람 캐시 리셋
   useEffect(() => {
-    const unsubSoyoon = subscribeKidNotificationSettings("soyoon", (s) => setSoyoonSettings(s));
-    const unsubSomin = subscribeKidNotificationSettings("somin", (s) => setSominSettings(s));
+    const unsubSoyoon = subscribeKidNotificationSettings("soyoon", (s) => {
+      setSoyoonSettings(s);
+      if (s?.weeklyCompletionTimes) {
+        const todayStr = getTodayDateString();
+        if (prevSoyoonTimesRef.current && 
+            JSON.stringify(prevSoyoonTimesRef.current) !== JSON.stringify(s.weeklyCompletionTimes)) {
+          console.log("소윤이 완료 시간 변경 감지: 오늘 울린 알람 캐시 리셋");
+          const nextAlarms = { ...triggeredAlarmsRef.current };
+          delete nextAlarms[`soyoon_${todayStr}_2_hour`];
+          delete nextAlarms[`soyoon_${todayStr}_1_hour`];
+          delete nextAlarms[`soyoon_${todayStr}_at_time`];
+          triggeredAlarmsRef.current = nextAlarms;
+          try {
+            localStorage.setItem(`triggered_alarms_${todayStr}`, JSON.stringify(nextAlarms));
+          } catch (e) {}
+        }
+        prevSoyoonTimesRef.current = s.weeklyCompletionTimes;
+      }
+    });
+
+    const unsubSomin = subscribeKidNotificationSettings("somin", (s) => {
+      setSominSettings(s);
+      if (s?.weeklyCompletionTimes) {
+        const todayStr = getTodayDateString();
+        if (prevSominTimesRef.current && 
+            JSON.stringify(prevSominTimesRef.current) !== JSON.stringify(s.weeklyCompletionTimes)) {
+          console.log("소민이 완료 시간 변경 감지: 오늘 울린 알람 캐시 리셋");
+          const nextAlarms = { ...triggeredAlarmsRef.current };
+          delete nextAlarms[`somin_${todayStr}_2_hour`];
+          delete nextAlarms[`somin_${todayStr}_1_hour`];
+          delete nextAlarms[`somin_${todayStr}_at_time`];
+          triggeredAlarmsRef.current = nextAlarms;
+          try {
+            localStorage.setItem(`triggered_alarms_${todayStr}`, JSON.stringify(nextAlarms));
+          } catch (e) {}
+        }
+        prevSominTimesRef.current = s.weeklyCompletionTimes;
+      }
+    });
+
     return () => {
       unsubSoyoon();
       unsubSomin();
@@ -158,8 +199,8 @@ export function AlarmMonitor({ homeworkItems, overrides }: AlarmMonitorProps) {
           const triggerKey = `${kid}_${todayStr}_${opt.value}`;
           if (triggeredAlarmsRef.current[triggerKey]) continue;
 
-          // 현재 시각 분이 알람 타겟 분과 정확히 일치할 때만 작동 (과거 소급 즉시 알람 차단)
-          if (nowMinutes === targetAlarmMinutes) {
+          // 현재 시각 분이 알람 타겟 분의 5분 이내 범위에 들어오는 경우 작동 (백그라운드 지연 구동 보완)
+          if (nowMinutes >= targetAlarmMinutes && nowMinutes < targetAlarmMinutes + 5) {
             triggeredAlarmsRef.current[triggerKey] = true;
 
             try {
