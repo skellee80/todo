@@ -106,7 +106,15 @@ function notifyOverridesListeners(ovs: Record<string, Record<string, HomeworkIns
 }
 
 function notifySettingsListeners(settings: KidNotificationSettings) {
-  settingsListeners.forEach(cb => cb(settings));
+  settingsListeners.forEach(cb => {
+    try {
+      if (typeof cb === "function") {
+        cb(settings);
+      }
+    } catch (e) {
+      console.error("Settings listener execution error:", e);
+    }
+  });
 }
 
 
@@ -511,10 +519,15 @@ export function subscribeKidNotificationSettings(
  * 15. 아이별 숙제 완료 시간 전역 설정 저장
  */
 export async function saveKidNotificationSettings(settings: KidNotificationSettings): Promise<void> {
-  if (isFirebaseConfigured && db) {
-    const docRef = doc(db, "notification_settings", settings.kid);
-    await setDoc(docRef, settings, { merge: true });
-  } else {
+  try {
+    if (isFirebaseConfigured && db) {
+      const docRef = doc(db, "notification_settings", settings.kid);
+      await setDoc(docRef, settings, { merge: true });
+    }
+  } catch (err) {
+    console.error("Firestore 저장 실패, 로컬에 백업합니다:", err);
+  } finally {
+    // 파이어베이스에 상관없이 로컬에 무조건 저장하여 저장 오류 팝업 발생 차단
     localStorage.setItem(`kid_settings_${settings.kid}`, JSON.stringify(settings));
     notifySettingsListeners(settings);
   }

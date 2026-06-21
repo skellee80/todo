@@ -140,49 +140,67 @@ export default function HomeworkDiaryHome() {
     return dates;
   };
 
-  // 실시간 알림 토글 핸들러
-  const handleTogglePush = async () => {
-    if (isPushSubscribed) {
-      try {
+  // 알림 설정 단일 토글 스위치 핸들러
+  const handleToggleKidPreference = async (target: "soyoon" | "somin") => {
+    let nextPref: "soyoon" | "somin" | "both" | "none" = "none";
+    
+    // 현재 상태에서 타겟 요소를 반전하여 다음 상태 결정
+    if (target === "soyoon") {
+      if (alarmPreference === "both") {
+        nextPref = "somin";
+      } else if (alarmPreference === "soyoon") {
+        nextPref = "none";
+      } else if (alarmPreference === "somin") {
+        nextPref = "both";
+      } else {
+        nextPref = "soyoon";
+      }
+    } else {
+      // somin 토글
+      if (alarmPreference === "both") {
+        nextPref = "soyoon";
+      } else if (alarmPreference === "somin") {
+        nextPref = "none";
+      } else if (alarmPreference === "soyoon") {
+        nextPref = "both";
+      } else {
+        nextPref = "somin";
+      }
+    }
+
+    try {
+      if (nextPref === "none") {
         const success = await unregisterPushNotification();
         if (success) {
+          setAlarmPreference("none" as any); // 내부 관리 편의를 위해 'none' 세팅
           setIsPushSubscribed(false);
-          alert("실시간 알림 수신이 해제되었습니다. 🔕");
+          alert("모든 실시간 알림 수신이 해제되었습니다. 🔕");
         } else {
           alert("알림 해제에 실패했습니다.");
         }
-      } catch (error) {
-        console.error("알림 해제 실패:", error);
-        alert("알림 해제 중 오류가 발생했습니다.");
-      }
-    } else {
-      try {
-        const token = await registerPushNotification(alarmPreference);
-        if (token) {
-          setIsPushSubscribed(true);
-          alert("실시간 스마트폰 알림 연동에 성공했습니다! 🎉\n이제 브라우저 창을 닫아도 시간에 맞춰 알림이 전송됩니다. 🔔");
-        } else {
-          alert("알림 설정에 실패했습니다. 파이어베이스 웹 푸시 VAPID 인증서 키 설정을 확인해 주세요.");
-        }
-      } catch (error) {
-        alert("알림 권한이 거부되었거나 설정 중 오류가 발생했습니다. 브라우저 설정에서 이 사이트의 알림 권한을 확인해 주세요.");
-      }
-    }
-  };
-
-  // 알림 수신 선호도 업데이트 핸들러
-  const handleUpdatePreference = async (pref: "soyoon" | "somin" | "both") => {
-    setAlarmPreference(pref);
-    try {
-      const success = await updateAlarmPreference(pref);
-      if (success) {
-        alert(`알림 수신 대상이 변경되었습니다: ${pref === "soyoon" ? "소윤이만" : pref === "somin" ? "소민이만" : "둘 다"}`);
       } else {
-        alert("알림 설정 업데이트에 실패했습니다.");
+        // 새로 등록 혹은 갱신
+        const token = await registerPushNotification(nextPref);
+        if (token) {
+          setAlarmPreference(nextPref);
+          setIsPushSubscribed(true);
+          
+          let alertMsg = "";
+          if (nextPref === "both") {
+            alertMsg = "소윤이와 소민이 둘 다 알림을 받도록 설정되었습니다. 🔔";
+          } else if (nextPref === "soyoon") {
+            alertMsg = "소윤이의 알림만 받도록 설정되었습니다. 🔔";
+          } else {
+            alertMsg = "소민이의 알림만 받도록 설정되었습니다. 🔔";
+          }
+          alert(alertMsg + "\n스마트폰 알림 연동이 완료되었습니다! 🎉");
+        } else {
+          alert("알림 설정에 실패했습니다. 파이어베이스 인증 설정을 확인하세요.");
+        }
       }
-    } catch (e) {
-      console.error(e);
-      alert("설정 변경 중 오류가 발생했습니다.");
+    } catch (error) {
+      console.error("알림 토글 실패:", error);
+      alert("알림 설정 변경 중 오류가 발생했습니다.");
     }
   };
 
@@ -464,32 +482,34 @@ export default function HomeworkDiaryHome() {
                               🔁 매주 ({item.recurringDays.map((d) => ["일", "월", "화", "수", "목", "금", "토"][d]).join(", ")})
                             </span>
                           )}
-                          {!isCompleted && (
-                            <span 
-                              className="meta-badge comment-btn" 
-                              style={{ cursor: "pointer" }}
-                              onClick={() => {
-                                setOpenCommentInputs(prev => ({
-                                  ...prev,
-                                  [item.id]: !prev[item.id]
-                                }));
-                              }}
-                            >
-                              💬 댓글
-                            </span>
-                          )}
                         </div>
                       </div>
                     </div>
 
-                    {/* 숙제 삭제 버튼 */}
-                    <button
-                      className="delete-btn"
-                      onClick={() => setDeletingHomework({ item })}
-                      title="숙제 삭제"
-                    >
-                      🗑️
-                    </button>
+                    <div className="homework-right">
+                      {!isCompleted && (
+                        <button 
+                          className="cute-btn" 
+                          style={{ padding: "6px 12px", fontSize: "0.8rem", borderRadius: "10px", background: "#f8f9fa", borderBottomColor: "#dee2e6", color: "#495057" }}
+                          onClick={() => {
+                            setOpenCommentInputs(prev => ({
+                              ...prev,
+                              [item.id]: !prev[item.id]
+                            }));
+                          }}
+                        >
+                          💬 댓글
+                        </button>
+                      )}
+                      {/* 숙제 삭제 버튼 */}
+                      <button
+                        className="delete-btn"
+                        onClick={() => setDeletingHomework({ item })}
+                        title="숙제 삭제"
+                      >
+                        🗑️
+                      </button>
+                    </div>
                   </div>
 
                   {/* 댓글 직접 입력 영역 */}
@@ -560,41 +580,25 @@ export default function HomeworkDiaryHome() {
             >
               ⏰ 완료 시간 설정
             </button>
-            <button 
-              className={`cute-btn ${currentKid === "soyoon" ? "primary-soyoon" : "primary-somin"}`}
-              style={{ fontSize: "1rem", padding: "12px 24px", borderRadius: "20px" }}
-              onClick={handleTogglePush}
-            >
-              {isPushSubscribed ? "🔕 알림 끄기" : "🔔 알림 받기"}
-            </button>
           </div>
           
-          {isPushSubscribed && (
-            <div className="pref-selector" style={{ display: "flex", gap: "6px", alignItems: "center", fontSize: "0.9rem", color: "#4a3b32" }}>
-              <span style={{ fontWeight: "bold" }}>🔔 알림 대상:</span>
-              <button 
-                className={`cute-btn ${alarmPreference === "soyoon" ? (currentKid === "soyoon" ? "primary-soyoon" : "primary-somin") : ""}`}
-                style={{ padding: "4px 10px", fontSize: "0.85rem", borderRadius: "10px" }}
-                onClick={() => handleUpdatePreference("soyoon")}
-              >
-                소윤이만
-              </button>
-              <button 
-                className={`cute-btn ${alarmPreference === "somin" ? (currentKid === "soyoon" ? "primary-soyoon" : "primary-somin") : ""}`}
-                style={{ padding: "4px 10px", fontSize: "0.85rem", borderRadius: "10px" }}
-                onClick={() => handleUpdatePreference("somin")}
-              >
-                소민이만
-              </button>
-              <button 
-                className={`cute-btn ${alarmPreference === "both" ? (currentKid === "soyoon" ? "primary-soyoon" : "primary-somin") : ""}`}
-                style={{ padding: "4px 10px", fontSize: "0.85rem", borderRadius: "10px" }}
-                onClick={() => handleUpdatePreference("both")}
-              >
-                둘다 받기
-              </button>
-            </div>
-          )}
+          <div className="pref-selector" style={{ display: "flex", gap: "8px", alignItems: "center", fontSize: "0.95rem", color: "#4a3b32", marginTop: "4px" }}>
+            <span style={{ fontWeight: "bold" }}>🔔 실시간 알림 받기:</span>
+            <button 
+              className={`cute-btn ${(alarmPreference === "soyoon" || alarmPreference === "both") ? "primary-soyoon" : ""}`}
+              style={{ padding: "8px 16px", fontSize: "0.9rem", borderRadius: "16px" }}
+              onClick={() => handleToggleKidPreference("soyoon")}
+            >
+              🌸 소윤이 알림 {(alarmPreference === "soyoon" || alarmPreference === "both") ? "ON" : "OFF"}
+            </button>
+            <button 
+              className={`cute-btn ${(alarmPreference === "somin" || alarmPreference === "both") ? "primary-somin" : ""}`}
+              style={{ padding: "8px 16px", fontSize: "0.9rem", borderRadius: "16px" }}
+              onClick={() => handleToggleKidPreference("somin")}
+            >
+              💧 소민이 알림 {(alarmPreference === "somin" || alarmPreference === "both") ? "ON" : "OFF"}
+            </button>
+          </div>
         </div>
       )}
 

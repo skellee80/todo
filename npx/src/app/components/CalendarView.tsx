@@ -163,9 +163,8 @@ export function CalendarView({
       });
     }
 
-    // 3. 다음 달 날짜 채우기 (5주=35칸 또는 6주=42칸이 채워질 때까지)
-    // 1일의 요일 인덱스와 이번 달 총 일수를 합산하여 35일 이하로 정리가 되면 5주만 채웁니다.
-    const totalCellsNeeded = (firstDayIndex + totalDaysInMonth <= 35) ? 35 : 42;
+    // 3. 다음 달 날짜 채우기 (4주 = 28칸 고정)
+    const totalCellsNeeded = 28;
     let nextMonthDay = 1;
     while (days.length < totalCellsNeeded) {
       const nextDate = new Date(year, month + 1, nextMonthDay);

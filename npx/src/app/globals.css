@@ -60,7 +60,7 @@ body.theme-somin {
 
 .app-title {
   font-family: 'Jua', sans-serif;
-  font-size: 1.3rem;
+  font-size: 1.0rem;
   color: #4a3b32;
   text-shadow: 2px 2px 0px #ffffff, 4px 4px 0px rgba(0,0,0,0.05);
   display: flex;
@@ -249,7 +249,8 @@ body.theme-somin {
 .calendar-day-cell {
   background: #faf6f0;
   border-radius: 12px;
-  min-height: 100px;
+  height: 100px;
+  overflow: hidden;
   padding: 4px;
   display: flex;
   flex-direction: column;
@@ -566,6 +567,12 @@ body.theme-somin {
 .delete-btn:hover {
   background: #ffe3e3;
   transform: scale(1.1);
+}
+
+.homework-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 /* 참 잘했어요 도장 스탬프 */
