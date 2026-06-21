@@ -67,7 +67,7 @@ export async function GET(req: NextRequest) {
       settingsMap["somin"] = sominDoc.data();
     }
 
-    const activeAlarms: Array<{ kid: string; kidLabel: string; time: string; alarmLabel: string }> = [];
+    const activeAlarms: Array<{ kid: string; kidLabel: string; time: string; alarmLabel: string; alarmValue: string }> = [];
     const kids: Array<"soyoon" | "somin"> = ["soyoon", "somin"];
 
     for (const kid of kids) {
@@ -122,7 +122,8 @@ export async function GET(req: NextRequest) {
               kid,
               kidLabel: kid === "soyoon" ? "소윤이" : "소민이",
               time: targetTimeStr,
-              alarmLabel: opt.label
+              alarmLabel: opt.label,
+              alarmValue: opt.value
             });
           }
         }
@@ -161,6 +162,8 @@ export async function GET(req: NextRequest) {
           continue;
         }
 
+        const triggerKey = `${alarm.kid}_${dateStr}_${alarm.alarmValue}`;
+
         const message = {
           notification: {
             title: `⏰ 숙제 완료 알림 [${alarm.kidLabel}]`,
@@ -173,8 +176,9 @@ export async function GET(req: NextRequest) {
           },
           webpush: {
             notification: {
-              icon: "/favicon.ico",
-              badge: "/favicon.ico"
+              icon: `${origin}/favicon.ico`,
+              badge: `${origin}/favicon.ico`,
+              tag: triggerKey
             },
             fcmOptions: {
               link: `${origin}/`

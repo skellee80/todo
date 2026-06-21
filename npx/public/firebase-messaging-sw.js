@@ -80,30 +80,12 @@ if (apiKey && projectId && messagingSenderId) {
 
   const messaging = firebase.messaging();
 
-  // 백그라운드 메시지 수신 시 모바일 등 일부 브라우저에서 알림이 누락되지 않도록 명시적으로 알림창을 띄워줍니다.
+  // 백그라운드 메시지 수신 핸들러
+  // FCM SDK는 payload에 notification 객체가 포함되어 있으면 자동으로 백그라운드 알림을 노출합니다.
+  // 이 핸들러에서 직접 showNotification을 한 번 더 호출하면 중복(두 번) 알림이 발생하게 되므로,
+  // 디버깅 로그 확인용으로만 유지하고 중복 호출을 제거합니다.
   messaging.onBackgroundMessage((payload) => {
     console.log('[firebase-messaging-sw.js] 백그라운드 메시지 수신:', payload);
-    
-    const title = payload.notification?.title || '⏰ 숙제 다이어리 알림';
-    const body = payload.notification?.body || '오늘 완료할 숙제가 있습니다.';
-    
-    // 상대 경로 이미지인 경우 모바일 OS 노티바에서 렌더링에 실패하므로 절대 경로(Origin 추가)로 강제 변환합니다.
-    const rawIcon = payload.notification?.image || payload.data?.icon || '/favicon.ico';
-    const icon = rawIcon.startsWith('http') ? rawIcon : (self.location.origin + (rawIcon.startsWith('/') ? '' : '/') + rawIcon);
-    const badge = self.location.origin + '/favicon.ico';
-    
-    const link = payload.data?.link || payload.notification?.click_action || '/';
-
-    const notificationOptions = {
-      body: body,
-      icon: icon,
-      badge: badge,
-      data: {
-        link: link
-      }
-    };
-
-    return self.registration.showNotification(title, notificationOptions);
   });
 } else {
   console.warn('[firebase-messaging-sw.js] 파이어베이스 연결 구성 정보가 부족하여 초기화하지 못했습니다.');
