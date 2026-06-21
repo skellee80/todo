@@ -79,9 +79,26 @@ if (apiKey && projectId && messagingSenderId) {
 
   const messaging = firebase.messaging();
 
-  // 백그라운드 메시지 수신 (알림은 브라우저가 자동 표시하므로 로그만 기록하여 중복 방지)
+  // 백그라운드 메시지 수신 시 모바일 등 일부 브라우저에서 알림이 누락되지 않도록 명시적으로 알림창을 띄워줍니다.
   messaging.onBackgroundMessage((payload) => {
     console.log('[firebase-messaging-sw.js] 백그라운드 메시지 수신:', payload);
+    
+    const title = payload.notification?.title || '⏰ 숙제 다이어리 알림';
+    const body = payload.notification?.body || '오늘 완료할 숙제가 있습니다.';
+    const icon = payload.notification?.image || payload.data?.icon || '/favicon.ico';
+    const badge = '/favicon.ico';
+    const link = payload.data?.link || payload.notification?.click_action || '/';
+
+    const notificationOptions = {
+      body: body,
+      icon: icon,
+      badge: badge,
+      data: {
+        link: link
+      }
+    };
+
+    return self.registration.showNotification(title, notificationOptions);
   });
 } else {
   console.warn('[firebase-messaging-sw.js] 파이어베이스 연결 구성 정보가 부족하여 초기화하지 못했습니다.');
