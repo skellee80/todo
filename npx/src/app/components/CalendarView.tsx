@@ -163,8 +163,8 @@ export function CalendarView({
       });
     }
 
-    // 3. 다음 달 날짜 채우기 (4주 = 28칸 고정)
-    const totalCellsNeeded = 28;
+    // 3. 다음 달 날짜 채우기 (5주=35칸 또는 6주=42칸이 채워질 때까지)
+    const totalCellsNeeded = (firstDayIndex + totalDaysInMonth <= 35) ? 35 : 42;
     let nextMonthDay = 1;
     while (days.length < totalCellsNeeded) {
       const nextDate = new Date(year, month + 1, nextMonthDay);
@@ -236,19 +236,24 @@ export function CalendarView({
           const isHoliday = isKoreanHoliday(date);
           const isRedDay = isSunday || isSaturday || isHoliday;
 
+          const isAllCompleted = activeHomework.length > 0 && activeHomework.every((item) => {
+            const dayOverride = overrides[key]?.[item.id];
+            return dayOverride ? dayOverride.completed : false;
+          });
+
           return (
             <div
               key={key}
               className={`calendar-day-cell ${!isCurrentMonth ? "other-month" : ""} ${
                 isToday ? "today" : ""
-              } ${isSelected ? "selected" : ""} ${isRedDay ? "red-day" : ""}`}
+              } ${isSelected ? "selected" : ""} ${isRedDay ? "red-day" : ""} ${isAllCompleted ? "all-completed" : ""}`}
               onClick={() => setSelectedDate(date)}
             >
               <div className="day-number">{date.getDate()}</div>
               
               {/* 숙제 미니 프리뷰 */}
               <div className="day-preview-list">
-                {activeHomework.slice(0, 4).map((item) => {
+                {activeHomework.slice(0, 3).map((item) => {
                   const dayOverride = overrides[key]?.[item.id];
                   const isCompleted = dayOverride ? dayOverride.completed : false;
                   const finalTitle = dayOverride?.titleOverride || item.title;
@@ -264,9 +269,9 @@ export function CalendarView({
                     </div>
                   );
                 })}
-                {activeHomework.length > 4 && (
+                {activeHomework.length > 3 && (
                   <div className="day-preview-item" style={{ background: "#e2e8f0", color: "#475569" }}>
-                    + {activeHomework.length - 4}개 더
+                    + {activeHomework.length - 3}개 더
                   </div>
                 )}
               </div>

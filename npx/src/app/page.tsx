@@ -583,7 +583,6 @@ export default function HomeworkDiaryHome() {
           </div>
           
           <div className="pref-selector" style={{ display: "flex", gap: "8px", alignItems: "center", fontSize: "0.95rem", color: "#4a3b32", marginTop: "4px" }}>
-            <span style={{ fontWeight: "bold" }}>🔔 실시간 알림 받기:</span>
             <button 
               className={`cute-btn ${(alarmPreference === "soyoon" || alarmPreference === "both") ? "primary-soyoon" : ""}`}
               style={{ padding: "8px 16px", fontSize: "0.9rem", borderRadius: "16px" }}

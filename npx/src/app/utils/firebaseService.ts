@@ -486,11 +486,27 @@ export function subscribeKidNotificationSettings(
   kid: 'soyoon' | 'somin',
   callback: (settings: KidNotificationSettings) => void
 ): () => void {
+  // 로컬 리스너 래퍼 생성 및 등록
+  const wrapper = (settings: KidNotificationSettings) => {
+    if (settings.kid === kid) {
+      callback(settings);
+    }
+  };
+  settingsListeners.add(wrapper);
+  
+  // 로컬 저장 값으로 초기 통지
+  callback(getLocalSettings(kid));
+
+  let unsubscribeFirebase: (() => void) | null = null;
+
   if (isFirebaseConfigured && db) {
     const docRef = doc(db, "notification_settings", kid);
-    return onSnapshot(docRef, (snapshot) => {
+    unsubscribeFirebase = onSnapshot(docRef, (snapshot) => {
       if (snapshot.exists()) {
-        callback(snapshot.data() as KidNotificationSettings);
+        const data = snapshot.data() as KidNotificationSettings;
+        // Firestore 원격 데이터를 로컬스토리지에 미러링
+        localStorage.setItem(`kid_settings_${kid}`, JSON.stringify(data));
+        callback(data);
       } else {
         const defaultVal = DEFAULT_SETTINGS(kid);
         setDoc(docRef, defaultVal).then(() => {
@@ -500,19 +516,14 @@ export function subscribeKidNotificationSettings(
     }, (error) => {
       console.error(`${kid} 설정 구독 중 에러 발생:`, error);
     });
-  } else {
-    // 로컬스토리지 구독
-    const wrapper = (settings: KidNotificationSettings) => {
-      if (settings.kid === kid) {
-        callback(settings);
-      }
-    };
-    settingsListeners.add(wrapper);
-    callback(getLocalSettings(kid));
-    return () => {
-      settingsListeners.delete(wrapper);
-    };
   }
+
+  return () => {
+    settingsListeners.delete(wrapper);
+    if (unsubscribeFirebase) {
+      unsubscribeFirebase();
+    }
+  };
 }
 
 /**
