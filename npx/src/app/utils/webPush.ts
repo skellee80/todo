@@ -10,21 +10,42 @@ const VAPID_KEY = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
  * 웹 푸시 서비스 워커 등록 및 FCM 토큰을 발급받아 Firestore에 저장합니다.
  */
 export async function registerPushNotification(preference: "soyoon" | "somin" | "both" = "both"): Promise<string | null> {
-  if (typeof window === "undefined" || !("serviceWorker" in navigator) || !("Notification" in window)) {
-    console.warn("이 브라우저는 웹 푸시 알림을 지원하지 않습니다.");
-    return null;
+  if (typeof window === "undefined") return null;
+
+  // 1. 보안 컨텍스트(HTTPS) 검사 (개발용 localhost 및 127.0.0.1 제외)
+  const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+  const isSecure = window.isSecureContext;
+  if (!isSecure && !isLocalhost) {
+    throw new Error("INSECURE_CONTEXT");
+  }
+
+  // 2. 카카오톡 인앱 브라우저 차단
+  const isKakaoTalk = /KAKAOTALK/i.test(navigator.userAgent);
+  if (isKakaoTalk) {
+    throw new Error("KAKAOTALK_BROWSER");
+  }
+
+  // 3. iOS 기기에서 홈 화면 추가(Standalone) 여부 검사
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+  const isStandalone = (window.navigator as any).standalone || window.matchMedia('(display-mode: standalone)').matches;
+  if (isIOS && !isStandalone) {
+    throw new Error("IOS_NOT_STANDALONE");
+  }
+
+  // 4. 일반 브라우저 스펙 검사
+  if (!("serviceWorker" in navigator) || !("Notification" in window)) {
+    throw new Error("UNSUPPORTED_BROWSER");
   }
 
   if (!isFirebaseConfigured || !db) {
-    console.warn("파이어베이스 설정이 활성화되지 않아 로컬 저장 모드로 푸시 요청을 생략합니다.");
-    return null;
+    throw new Error("FIREBASE_NOT_CONFIGURED");
   }
 
   try {
     // 1. 알림 권한 획득 요청
     const permission = await Notification.requestPermission();
     if (permission !== "granted") {
-      throw new Error("알림 권한 동의를 거부당했습니다.");
+      throw new Error("PERMISSION_DENIED");
     }
 
     // 2. 서비스 워커 등록 및 환경 변수 전달
@@ -49,8 +70,7 @@ export async function registerPushNotification(preference: "soyoon" | "somin" | 
     const messaging = getMessaging(firebaseApp);
 
     if (!VAPID_KEY) {
-      console.warn("NEXT_PUBLIC_FIREBASE_VAPID_KEY 환경 변수가 제공되지 않아 FCM 토큰을 가져올 수 없습니다.");
-      return null;
+      throw new Error("MISSING_VAPID_KEY");
     }
 
     const token = await getToken(messaging, {
@@ -75,8 +95,7 @@ export async function registerPushNotification(preference: "soyoon" | "somin" | 
       console.log("기기 토큰 Firestore 등록 완료:", token);
       return token;
     } else {
-      console.warn("사용자 기기 토큰 획득 실패.");
-      return null;
+      throw new Error("TOKEN_GENERATION_FAILED");
     }
   } catch (error) {
     console.error("푸시 알림 연동 중 예외 발생:", error);

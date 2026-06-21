@@ -216,9 +216,29 @@ export default function HomeworkDiaryHome() {
           alert("알림 설정에 실패했습니다. 파이어베이스 인증 설정을 확인하세요.");
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("알림 토글 실패:", error);
-      alert("알림 설정 변경 중 오류가 발생했습니다.");
+      
+      let errorMsg = "알림 설정 중 오류가 발생했습니다.";
+      if (error.message === "INSECURE_CONTEXT") {
+        errorMsg = "🔒 보안 연결(HTTPS)이 아닙니다.\n\n웹 푸시 알림 기능은 HTTPS 보안 연결 또는 개발용 localhost 환경에서만 작동합니다. 브라우저 접속 주소가 'https://'로 시작하는지 확인해 주세요.";
+      } else if (error.message === "KAKAOTALK_BROWSER") {
+        errorMsg = "🌐 카카오톡 인앱 브라우저는 알림 설정을 지원하지 않습니다.\n\n우측 하단의 더보기(...) 버튼을 누른 뒤 '다른 브라우저(Chrome, Safari 등)로 열기'를 선택하여 접속하신 후 다시 시도해 주세요!";
+      } else if (error.message === "IOS_NOT_STANDALONE") {
+        errorMsg = "📲 아이폰(iOS)에서 알림을 받으려면 앱을 '홈 화면에 추가'해야 합니다.\n\n[방법]\n1. Safari 브라우저 하단의 '공유 버튼(위 화살표 모양)'을 누릅니다.\n2. 메뉴에서 '홈 화면에 추가'를 클릭합니다.\n3. 홈 화면에 생성된 앱 아이콘으로 다시 접속하여 알림 설정을 켜 주세요! 🔔";
+      } else if (error.message === "UNSUPPORTED_BROWSER") {
+        errorMsg = "🚨 이 브라우저는 실시간 알림 기능을 지원하지 않습니다. 지원되는 브라우저(Chrome, Safari 등)로 다시 접속해 주세요.";
+      } else if (error.message === "PERMISSION_DENIED") {
+        errorMsg = "🚫 알림 권한이 거부되어 있습니다.\n\n브라우저 주소창 왼쪽의 자물쇠/설정 버튼 또는 스마트폰 설정에서 알림 권한을 '허용'으로 변경하신 후 다시 시도해 주세요. 🔔";
+      } else if (error.message === "MISSING_VAPID_KEY" || error.message === "FIREBASE_NOT_CONFIGURED") {
+        errorMsg = "⚙️ 파이어베이스 푸시(VAPID) 구성 정보가 설정되어 있지 않습니다. 관리자 환경변수 설정을 확인하세요.";
+      } else if (error.message === "TOKEN_GENERATION_FAILED") {
+        errorMsg = "🔑 알림 토큰 발급에 실패했습니다. 네트워크 상태를 확인하시거나 잠시 후 다시 시도해 주세요.";
+      } else {
+        errorMsg = `알림 연동에 실패했습니다:\n${error.message || error}`;
+      }
+      
+      alert(errorMsg);
     }
   };
 
