@@ -188,6 +188,13 @@ export default function HomeworkDiaryHome() {
         if (isFirebaseConfigured) {
           token = await registerPushNotification(nextPref);
         } else {
+          // 로컬 데모 모드일 때도 브라우저 알림 권한을 명시적으로 요청하여 노티바 구동 보장
+          if (typeof window !== "undefined" && "Notification" in window) {
+            const perm = await Notification.requestPermission();
+            if (perm !== "granted") {
+              alert("알림 권한이 허용되지 않았습니다. 브라우저 설정에서 권한을 승인해야 노티바 알림을 받을 수 있습니다. 🔔");
+            }
+          }
           // 로컬 데모 모드일 때는 스토리지를 직접 갱신하여 로컬 브라우저 알람 팝업 구동 보장
           localStorage.setItem("alarm_preference", nextPref);
         }

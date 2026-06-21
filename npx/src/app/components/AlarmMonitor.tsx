@@ -219,6 +219,34 @@ export function AlarmMonitor({ homeworkItems, overrides }: AlarmMonitorProps) {
               time: targetTimeStr,
               alarmLabel: opt.label,
             });
+
+            // 브라우저 네이티브 시스템 알림(노티바) 팝업 발송
+            if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
+              const kidName = kid === "soyoon" ? "소윤이" : "소민이";
+              const notificationTitle = `⏰ 숙제 완료 알림 [${kidName}]`;
+              const notificationBody = opt.label === "완료 정시"
+                ? `${kidName}의 오늘의 숙제 완료 정시입니다! 지금 숙제를 마칠 시간입니다! 💪`
+                : `${kidName}의 오늘의 숙제 완료 ${opt.label}입니다! 얼른 완료하고 신나게 놀아볼까요? 💪`;
+              
+              const notificationOptions = {
+                body: notificationBody,
+                icon: window.location.origin + "/favicon.ico",
+                badge: window.location.origin + "/favicon.ico",
+                tag: triggerKey,
+                requireInteraction: true
+              };
+
+              if ("serviceWorker" in navigator) {
+                navigator.serviceWorker.ready.then((registration) => {
+                  registration.showNotification(notificationTitle, notificationOptions);
+                }).catch(() => {
+                  new Notification(notificationTitle, notificationOptions);
+                });
+              } else {
+                new Notification(notificationTitle, notificationOptions);
+              }
+            }
+
             triggeredAnAlarm = true;
             break;
           }
