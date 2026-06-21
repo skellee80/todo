@@ -60,7 +60,7 @@ body.theme-somin {
 
 .app-title {
   font-family: 'Jua', sans-serif;
-  font-size: 0.38rem;
+  font-size: 0.19rem;
   color: #4a3b32;
   text-shadow: 2px 2px 0px #ffffff, 4px 4px 0px rgba(0,0,0,0.05);
   display: flex;
@@ -249,7 +249,7 @@ body.theme-somin {
 .calendar-day-cell {
   background: #faf6f0;
   border-radius: 12px;
-  height: 80px;
+  height: 64px;
   overflow: hidden;
   padding: 4px;
   display: flex;

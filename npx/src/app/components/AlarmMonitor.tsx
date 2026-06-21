@@ -158,8 +158,8 @@ export function AlarmMonitor({ homeworkItems, overrides }: AlarmMonitorProps) {
           const triggerKey = `${kid}_${todayStr}_${opt.value}`;
           if (triggeredAlarmsRef.current[triggerKey]) continue;
 
-          // 알람 시간 범위 내에 도달했는지 확인
-          if (nowMinutes >= targetAlarmMinutes && nowMinutes <= schMinutes + 30) {
+          // 현재 시각 분이 알람 타겟 분과 정확히 일치할 때만 작동 (과거 소급 즉시 알람 차단)
+          if (nowMinutes === targetAlarmMinutes) {
             triggeredAlarmsRef.current[triggerKey] = true;
 
             try {
