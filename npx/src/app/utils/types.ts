@@ -49,3 +49,9 @@ export function isHomeworkActiveOnDate(item: HomeworkItem, dateStr: string): boo
   
   return item.recurringDays.includes(dayOfWeek);
 }
+
+export interface KidNotificationSettings {
+  kid: 'soyoon' | 'somin';
+  weeklyCompletionTimes: string[]; // 크기 7의 배열 (0: 일, 1: 월, ..., 6: 토), 각각 "HH:mm" 형식
+}
+

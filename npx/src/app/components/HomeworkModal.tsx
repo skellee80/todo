@@ -21,14 +21,10 @@ export function HomeworkModal({
   const [title, setTitle] = useState("");
   const [kid, setKid] = useState<"soyoon" | "somin">(defaultKid);
   const [dateStr, setDateStr] = useState("");
-  const [timeStr, setTimeStr] = useState("14:00");
   
   // 반복 설정 상태
   const [isRecurring, setIsRecurring] = useState(false);
   const [recurringDays, setRecurringDays] = useState<number[]>([]);
-
-  // 알람 설정 상태
-  const [selectedAlarms, setSelectedAlarms] = useState<string[]>([]);
 
   // 모달이 열릴 때마다 필드 초기화
   useEffect(() => {
@@ -42,16 +38,14 @@ export function HomeworkModal({
       const d = String(defaultDate.getDate()).padStart(2, "0");
       setDateStr(`${y}-${m}-${d}`);
       
-      setTimeStr("14:00");
       setIsRecurring(false);
       
       // 클릭한 날짜의 요일을 기본 반복 요일로 제안하기 위해 계산
       const currentDayOfWeek = defaultDate.getDay();
       setRecurringDays([currentDayOfWeek]);
-      
-      setSelectedAlarms([]);
     }
   }, [isOpen, defaultKid, defaultDate]);
+
 
   if (!isOpen) return null;
 
@@ -89,10 +83,10 @@ export function HomeworkModal({
       title: title.trim(),
       kid,
       date: dateStr,
-      time: timeStr,
+      time: "18:00",
       isRecurring,
       recurringDays: isRecurring ? recurringDays : [],
-      alarmOption: selectedAlarms.length > 0 ? selectedAlarms.join(",") : "none",
+      alarmOption: "none",
     });
     onClose();
   };
@@ -139,18 +133,6 @@ export function HomeworkModal({
             />
           </div>
 
-          {/* 숙제 시간 (시/분) */}
-          <div className="form-group">
-            <label className="form-label">⏰ 숙제 완료 시간</label>
-            <input
-              type="time"
-              className="form-input"
-              value={timeStr}
-              onChange={(e) => setTimeStr(e.target.value)}
-              required
-            />
-          </div>
-
           {/* 반복 설정 */}
           <div className="form-group" style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
             <label className="form-label" style={{ cursor: "pointer" }}>
@@ -187,41 +169,6 @@ export function HomeworkModal({
               </div>
             </div>
           )}
-
-          {/* 알람 설정 */}
-          <div className="form-group">
-            <label className="form-label">🔔 미리 알림 설정 (중복 선택 가능)</label>
-            <div className="days-select-grid" style={{ gridTemplateColumns: "repeat(4, 1fr)" }}>
-              {[
-                { label: "정시", value: "at_time" },
-                { label: "1시간 전", value: "1_hour" },
-                { label: "2시간 전", value: "2_hour" },
-                { label: "3시간 전", value: "3_hour" }
-              ].map((opt) => {
-                const isChecked = selectedAlarms.includes(opt.value);
-                return (
-                  <label
-                    key={opt.value}
-                    className={`day-checkbox-label ${isChecked ? "checked" : ""}`}
-                    style={{ padding: "10px 2px", textAlign: "center" }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={isChecked}
-                      onChange={() => {
-                        if (isChecked) {
-                          setSelectedAlarms(selectedAlarms.filter(a => a !== opt.value));
-                        } else {
-                          setSelectedAlarms([...selectedAlarms, opt.value]);
-                        }
-                      }}
-                    />
-                    {opt.label}
-                  </label>
-                );
-              })}
-            </div>
-          </div>
 
           {/* 저장 및 취소 */}
           <div className="modal-actions">

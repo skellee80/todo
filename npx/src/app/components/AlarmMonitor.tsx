@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { HomeworkItem, HomeworkInstanceOverride, isHomeworkActiveOnDate } from "../utils/types";
+import { HomeworkItem, HomeworkInstanceOverride, isHomeworkActiveOnDate, KidNotificationSettings } from "../utils/types";
+import { subscribeKidNotificationSettings } from "../utils/firebaseService";
 
 interface AlarmMonitorProps {
   homeworkItems: HomeworkItem[];
@@ -9,8 +10,7 @@ interface AlarmMonitorProps {
 }
 
 interface ActiveAlarm {
-  homeworkId: string;
-  title: string;
+  id: string;
   kid: "soyoon" | "somin";
   time: string;
   alarmLabel: string;
@@ -18,9 +18,11 @@ interface ActiveAlarm {
 
 export function AlarmMonitor({ homeworkItems, overrides }: AlarmMonitorProps) {
   const [activeAlarm, setActiveAlarm] = useState<ActiveAlarm | null>(null);
+  const [soyoonSettings, setSoyoonSettings] = useState<KidNotificationSettings | null>(null);
+  const [sominSettings, setSominSettings] = useState<KidNotificationSettings | null>(null);
   
   // 오늘 이미 울린 알람 기록 (새로고침 시 방지하기 위해 로컬스토리지 연동)
-  // 키 형식: homeworkId_YYYY-MM-DD
+  // 키 형식: kid_YYYY-MM-DD_option
   const triggeredAlarmsRef = useRef<Record<string, boolean>>({});
 
   // 로컬 시간 구하는 포맷터 (YYYY-MM-DD)
@@ -67,8 +69,18 @@ export function AlarmMonitor({ homeworkItems, overrides }: AlarmMonitorProps) {
     }
   };
 
+  // 1. 아이별 전역 알림 설정 구독
   useEffect(() => {
-    // 마운트 시 로컬스토리지에서 오늘 울린 알람 읽어오기
+    const unsubSoyoon = subscribeKidNotificationSettings("soyoon", (s) => setSoyoonSettings(s));
+    const unsubSomin = subscribeKidNotificationSettings("somin", (s) => setSominSettings(s));
+    return () => {
+      unsubSoyoon();
+      unsubSomin();
+    };
+  }, []);
+
+  // 2. 타이머로 알람 감지 (10초 주기)
+  useEffect(() => {
     const todayStr = getTodayDateString();
     try {
       const stored = localStorage.getItem(`triggered_alarms_${todayStr}`);
@@ -79,13 +91,13 @@ export function AlarmMonitor({ homeworkItems, overrides }: AlarmMonitorProps) {
       console.error(e);
     }
 
-    // 10초마다 알람 감지 타이머 작동
     const interval = setInterval(() => {
       const todayStr = getTodayDateString();
       const now = new Date();
       
       // 오늘 몇 분이 지났는지 계산
       const nowMinutes = now.getHours() * 60 + now.getMinutes();
+      const dayOfWeek = now.getDay(); // 0(일)~6(토)
 
       // 현재 브라우저의 알림 선호도 확인 (localStorage)
       let pref: "soyoon" | "somin" | "both" = "both";
@@ -96,70 +108,60 @@ export function AlarmMonitor({ homeworkItems, overrides }: AlarmMonitorProps) {
         }
       } catch (e) {}
 
-      // 오늘 활성화된 숙제 리스트 조회
-      const todaysHomeworks = homeworkItems.filter((item) =>
-        isHomeworkActiveOnDate(item, todayStr)
-      );
+      // 아이별 순차 검사
+      const kids: Array<"soyoon" | "somin"> = ["soyoon", "somin"];
 
-      for (const item of todaysHomeworks) {
-        // 알림 수신 설정에 맞지 않는 아이의 숙제 알람은 스킵 (노티바 차단과 일치하도록 처리)
-        if (pref !== "both" && pref !== item.kid) continue;
+      for (const kid of kids) {
+        // 알림 수신 선호 필터링
+        if (pref !== "both" && pref !== kid) continue;
 
-        // 이미 완료된 숙제는 알람 패스
-        const dayOverride = overrides[todayStr]?.[item.id];
-        const isCompleted = dayOverride ? dayOverride.completed : false;
-        if (isCompleted) continue;
+        // 오늘 해당 아이의 활성화된 숙제 리스트 조회
+        const activeHomeworks = homeworkItems.filter((item) => {
+          if (item.kid !== kid) return false;
+          if (!isHomeworkActiveOnDate(item, todayStr)) return false;
+          const dayOverride = overrides[todayStr]?.[item.id];
+          if (dayOverride && dayOverride.deleted) return false;
+          return true;
+        });
 
-        // 알람 설정 확인
-        // 만약 개별 알람 오버라이드가 있으면 적용, 없으면 기본 알람 적용
-        const activeAlarmOption = dayOverride?.alarmOverride !== undefined 
-          ? dayOverride.alarmOverride 
-          : item.alarmOption;
+        if (activeHomeworks.length === 0) continue;
 
-        if (!activeAlarmOption || activeAlarmOption === "none") continue;
+        // 하나라도 미완료 숙제가 있는지 검증
+        const hasPendingHomework = activeHomeworks.some((item) => {
+          const dayOverride = overrides[todayStr]?.[item.id];
+          return dayOverride ? !dayOverride.completed : true; // 기본값 false(=미완료)
+        });
 
-        const options = activeAlarmOption.split(",");
+        if (!hasPendingHomework) continue;
+
+        // 아이의 오늘 완료 예정 시간 로드
+        const settings = kid === "soyoon" ? soyoonSettings : sominSettings;
+        if (!settings || !settings.weeklyCompletionTimes) continue;
+
+        const targetTimeStr = settings.weeklyCompletionTimes[dayOfWeek] || "18:00";
+        const [schHour, schMin] = targetTimeStr.split(":").map(Number);
+        const schMinutes = schHour * 60 + schMin;
+
+        // 알림 오프셋 옵션 (2시간 전, 1시간 전, 정시)
+        const alarmOptions = [
+          { value: "2_hour", offset: 120, label: "완료 2시간 전" },
+          { value: "1_hour", offset: 60, label: "완료 1시간 전" },
+          { value: "at_time", offset: 0, label: "완료 정시" },
+        ];
+
         let triggeredAnAlarm = false;
 
-        for (const option of options) {
-          const trimmedOpt = option.trim();
-          if (!trimmedOpt) continue;
-
-          // 알람 옵션에 따른 분 오프셋 계산
-          let offset = 0;
-          let alarmLabel = "정시";
-          if (trimmedOpt === "at_time") {
-            offset = 0;
-            alarmLabel = "정시";
-          } else if (trimmedOpt === "1_hour") {
-            offset = 60;
-            alarmLabel = "1시간 전";
-          } else if (trimmedOpt === "2_hour") {
-            offset = 120;
-            alarmLabel = "2시간 전";
-          } else if (trimmedOpt === "3_hour") {
-            offset = 180;
-            alarmLabel = "3시간 전";
-          } else {
-            continue; // 지원되지 않는 옵션 스킵
-          }
-
-          // 숙제 완료 시간 파싱
-          const [schHour, schMin] = item.time.split(":").map(Number);
-          const schMinutes = schHour * 60 + schMin;
-          const targetAlarmMinutes = schMinutes - offset;
-
-          // 오늘 특정 알람 옵션이 이미 울렸는지 체크
-          const triggerKey = `${item.id}_${todayStr}_${trimmedOpt}`;
+        for (const opt of alarmOptions) {
+          const targetAlarmMinutes = schMinutes - opt.offset;
+          
+          // 고유 알람 트리거 키: kid_todayStr_option
+          const triggerKey = `${kid}_${todayStr}_${opt.value}`;
           if (triggeredAlarmsRef.current[triggerKey]) continue;
 
-          // 현재 시간이 알람 시간 이상이고, 숙제 완료 시간 이후 30분 이내인 경우 작동
-          // (지나치게 과거의 알람이 페이지 열자마자 울리는 것 방지)
+          // 알람 시간 범위 내에 도달했는지 확인
           if (nowMinutes >= targetAlarmMinutes && nowMinutes <= schMinutes + 30) {
-            // 알람 트리거!
             triggeredAlarmsRef.current[triggerKey] = true;
-            
-            // 로컬스토리지에 저장
+
             try {
               localStorage.setItem(
                 `triggered_alarms_${todayStr}`,
@@ -169,28 +171,26 @@ export function AlarmMonitor({ homeworkItems, overrides }: AlarmMonitorProps) {
               console.error(e);
             }
 
-            // 소리 재생 및 상태 설정
             playChime();
             setActiveAlarm({
-              homeworkId: item.id,
-              title: item.title,
-              kid: item.kid,
-              time: item.time,
-              alarmLabel,
+              id: triggerKey,
+              kid,
+              time: targetTimeStr,
+              alarmLabel: opt.label,
             });
             triggeredAnAlarm = true;
-            break; // 해당 아이템의 한 가지 알람이 울리면 일단 브레이크
+            break;
           }
         }
 
         if (triggeredAnAlarm) {
-          break; // 여러 개가 동시 작동하더라도 10초 주기마다 하나씩 처리하도록 브레이크
+          break; // 여러 알람이 동시 울리거나 두 아이가 동시 울리더라도 하나씩 처리
         }
       }
     }, 10000);
 
     return () => clearInterval(interval);
-  }, [homeworkItems, overrides]);
+  }, [homeworkItems, overrides, soyoonSettings, sominSettings]);
 
   if (!activeAlarm) return null;
 
@@ -201,14 +201,15 @@ export function AlarmMonitor({ homeworkItems, overrides }: AlarmMonitorProps) {
     <div className={`modal-overlay ${themeClass}`}>
       <div className="modal-content alarm-modal-content">
         <span className="alarm-icon">🔔</span>
-        <h3 className="alarm-title">숙제 알림!</h3>
-        <p className="alarm-message">
-          <strong>{kidName}</strong>의 <strong>[{activeAlarm.title}]</strong> 숙제<br />
-          {activeAlarm.alarmLabel === "정시" ? (
-            <>지금 <strong>완료할 시간(정시)</strong>입니다!</>
+        <h3 className="alarm-title">숙제 완료 알림!</h3>
+        <p className="alarm-message" style={{ fontSize: "1.1rem", lineHeight: "1.5" }}>
+          <strong>{kidName}</strong>의 오늘의 숙제 <strong>{activeAlarm.alarmLabel}</strong>입니다! 💪<br />
+          {activeAlarm.alarmLabel === "완료 정시" ? (
+            <>지금 숙제를 마칠 시간입니다!</>
           ) : (
-            <>완료 <strong>{activeAlarm.alarmLabel}</strong>입니다!</>
-          )} ({activeAlarm.time} 예정)
+            <>얼른 완료하고 신나게 놀아볼까요?</>
+          )}<br />
+          <span style={{ fontSize: "0.9rem", color: "#868e96" }}>({kidName} 완료 기준시간: {activeAlarm.time})</span>
         </p>
         <button
           className={`cute-btn ${activeAlarm.kid === "soyoon" ? "primary-soyoon" : "primary-somin"}`}

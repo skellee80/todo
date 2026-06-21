@@ -29,7 +29,6 @@ try {
 
 export async function GET(req: NextRequest) {
   // 보안 검사: 외부 크론 스케줄러가 아닌 임의 호출 방지를 위해 간단한 인증 키 확인 설정 가능
-  // (현재는 쉬운 등록을 위해 기본 오픈해 두되, 어드민 설정이 유효한지 우선 검사합니다.)
   if (!adminDb || !adminMessaging) {
     return NextResponse.json(
       { success: false, message: "파이어베이스 어드민이 활성화되지 않은 로컬 모드 상태입니다." },
@@ -54,81 +53,76 @@ export async function GET(req: NextRequest) {
 
     // 2. 전체 숙제 목록 로드
     const homeworkSnap = await adminDb.collection("homework").get();
-    const activeAlarms: Array<{ title: string; kid: string; kidLabel: string; time: string; alarmLabel: string }> = [];
+    
+    // 3. 아이별 전역 알림 완료 설정 로드
+    const settingsSnap = await adminDb.collection("notification_settings").get();
+    const settingsMap: Record<string, any> = {};
+    settingsSnap.forEach((doc: any) => {
+      settingsMap[doc.id] = doc.data();
+    });
 
-    for (const doc of homeworkSnap.docs) {
-      const item = doc.data();
-      const itemId = doc.id;
+    const activeAlarms: Array<{ kid: string; kidLabel: string; time: string; alarmLabel: string }> = [];
+    const kids: Array<"soyoon" | "somin"> = ["soyoon", "somin"];
 
-      // 오늘 활성화된 숙제인지 검사
-      if (dateStr < item.date) continue;
-      
-      let isTodayActive = false;
-      if (!item.isRecurring) {
-        isTodayActive = (item.date === dateStr);
-      } else {
-        isTodayActive = item.recurringDays.includes(dayOfWeek);
+    for (const kid of kids) {
+      // 오늘 해당 아이의 활성화된 숙제 리스트 조회
+      const kidHomeworks: any[] = [];
+      for (const doc of homeworkSnap.docs) {
+        const item = doc.data();
+        const itemId = doc.id;
+        if (item.kid !== kid) continue;
+        if (dateStr < item.date) continue;
+        if (item.endDate && dateStr > item.endDate) continue;
+
+        let isTodayActive = false;
+        if (!item.isRecurring) {
+          isTodayActive = (item.date === dateStr);
+        } else {
+          isTodayActive = item.recurringDays.includes(dayOfWeek);
+        }
+        if (!isTodayActive) continue;
+
+        // 오늘 날짜 오버라이드 내역 확인 (완료 여부, 삭제 여부)
+        const overrideDoc = await adminDb.collection("overrides").doc(`${dateStr}_${itemId}`).get();
+        const overrideData = overrideDoc.exists ? overrideDoc.data() : null;
+
+        // 오늘 삭제(제외)되었거나 완료되었으면 미완료 목록에서 필터링
+        if (overrideData?.deleted === true) continue;
+        if (overrideData?.completed === true) continue;
+
+        kidHomeworks.push({ id: itemId, ...item });
       }
 
-      if (!isTodayActive) continue;
+      // 오늘 해야 할 미완료 숙제가 하나라도 있다면 알림 기준 시간 매칭 검사
+      if (kidHomeworks.length > 0) {
+        const settings = settingsMap[kid] || { weeklyCompletionTimes: Array(7).fill("18:00") };
+        const targetTimeStr = settings.weeklyCompletionTimes?.[dayOfWeek] || "18:00";
 
-      // 3. 오늘 날짜 오버라이드 내역 확인 (완료 여부, 개별 알람)
-      const overrideDoc = await adminDb.collection("overrides").doc(`${dateStr}_${itemId}`).get();
-      const overrideData = overrideDoc.exists ? overrideDoc.data() : null;
-
-      // 이미 오늘 완료한 숙제면 패스
-      if (overrideData?.completed === true) continue;
-      // 특별한 사유로 패스("🚫 이번 숙제 패스") 상태여도 패스
-      if (overrideData?.comment?.includes("🚫")) continue;
-
-      const activeAlarmOption = overrideData?.alarmOverride !== undefined
-        ? overrideData.alarmOverride
-        : item.alarmOption;
-
-      if (!activeAlarmOption || activeAlarmOption === "none") continue;
-
-      const options = activeAlarmOption.split(",");
-      for (const option of options) {
-        const trimmedOpt = option.trim();
-        if (!trimmedOpt) continue;
-
-        let offset = 0;
-        let alarmLabel = "정시";
-        if (trimmedOpt === "at_time") {
-          offset = 0;
-          alarmLabel = "정시";
-        } else if (trimmedOpt === "1_hour") {
-          offset = 60;
-          alarmLabel = "1시간 전";
-        } else if (trimmedOpt === "2_hour") {
-          offset = 120;
-          alarmLabel = "2시간 전";
-        } else if (trimmedOpt === "3_hour") {
-          offset = 180;
-          alarmLabel = "3시간 전";
-        } else {
-          continue; // 알 수 없는 옵션 스킵
-        }
-
-        // 숙제 완료 시간 분 계산
-        const [schHour, schMin] = item.time.split(":").map(Number);
+        const [schHour, schMin] = targetTimeStr.split(":").map(Number);
         const schMinutes = schHour * 60 + schMin;
-        const targetAlarmMinutes = schMinutes - offset;
 
-        // 현재 시각 분이 알람 예약 분과 일치하는지 판별
-        if (currentMinutesKST === targetAlarmMinutes) {
-          activeAlarms.push({
-            title: item.title,
-            kid: item.kid,
-            kidLabel: item.kid === "soyoon" ? "소윤이" : "소민이",
-            time: item.time,
-            alarmLabel
-          });
+        // 알림 옵션 3가지 검사 (2시간 전, 1시간 전, 정시)
+        const alarmOptions = [
+          { value: "2_hour", offset: 120, label: "2시간 전" },
+          { value: "1_hour", offset: 60, label: "1시간 전" },
+          { value: "at_time", offset: 0, label: "정시" },
+        ];
+
+        for (const opt of alarmOptions) {
+          const targetAlarmMinutes = schMinutes - opt.offset;
+          if (currentMinutesKST === targetAlarmMinutes) {
+            activeAlarms.push({
+              kid,
+              kidLabel: kid === "soyoon" ? "소윤이" : "소민이",
+              time: targetTimeStr,
+              alarmLabel: opt.label
+            });
+          }
         }
       }
     }
 
-    // 5. 발송할 알람이 있다면 각 기기의 알림 선호도(소윤이만, 소민이만, 둘 다)에 맞게 필터링하여 전송
+    // 4. 발송할 알람이 있다면 각 기기의 알림 선호도(소윤이만, 소민이만, 둘 다)에 맞게 필터링하여 전송
     if (activeAlarms.length > 0) {
       const devicesSnap = await adminDb.collection("devices").get();
       
@@ -156,16 +150,16 @@ export async function GET(req: NextRequest) {
         });
 
         if (alarmTokens.length === 0) {
-          console.log(`[send-alarms] [${alarm.kidLabel}]의 [${alarm.title}] 숙제 알림을 전송할 대상 기기가 없습니다.`);
+          console.log(`[send-alarms] [${alarm.kidLabel}]의 숙제 알림을 전송할 대상 기기가 없습니다.`);
           continue;
         }
 
         const message = {
           notification: {
-            title: `⏰ 숙제 시간 알림 [${alarm.kidLabel}]`,
+            title: `⏰ 숙제 완료 알림 [${alarm.kidLabel}]`,
             body: alarm.alarmLabel === "정시"
-              ? `${alarm.kidLabel}의 [${alarm.title}] 숙제 지금 완료할 시간(정시)입니다! (${alarm.time} 예정) 💪`
-              : `${alarm.kidLabel}의 [${alarm.title}] 숙제 완료 ${alarm.alarmLabel}입니다! (${alarm.time} 예정) 💪`
+              ? `${alarm.kidLabel}의 오늘의 숙제 완료 정시입니다! 지금 숙제를 마칠 시간입니다! 💪`
+              : `${alarm.kidLabel}의 오늘의 숙제 완료 ${alarm.alarmLabel}입니다! 얼른 완료하고 신나게 놀아볼까요? 💪`
           },
           data: {
             link: `${origin}/`

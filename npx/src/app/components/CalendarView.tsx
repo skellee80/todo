@@ -185,7 +185,7 @@ export function CalendarView({
   const selectedStr = toDateStringObj(selectedDate);
 
   return (
-    <div className="cute-card">
+    <div className="cute-card calendar-card">
       {/* 달력 네비게이션 헤더 */}
       <div className="calendar-nav">
         <h2 className="nav-title">
@@ -249,7 +249,7 @@ export function CalendarView({
               
               {/* 숙제 미니 프리뷰 */}
               <div className="day-preview-list">
-                {activeHomework.slice(0, 2).map((item) => {
+                {activeHomework.slice(0, 4).map((item) => {
                   const dayOverride = overrides[key]?.[item.id];
                   const isCompleted = dayOverride ? dayOverride.completed : false;
                   const finalTitle = dayOverride?.titleOverride || item.title;
@@ -265,9 +265,9 @@ export function CalendarView({
                     </div>
                   );
                 })}
-                {activeHomework.length > 2 && (
+                {activeHomework.length > 4 && (
                   <div className="day-preview-item" style={{ background: "#e2e8f0", color: "#475569" }}>
-                    + {activeHomework.length - 2}개 더
+                    + {activeHomework.length - 4}개 더
                   </div>
                 )}
               </div>

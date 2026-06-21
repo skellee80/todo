@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { CalendarView } from "./components/CalendarView";
 import { HomeworkModal } from "./components/HomeworkModal";
 import { AlarmMonitor } from "./components/AlarmMonitor";
-import { HomeworkItem, HomeworkInstanceOverride, isHomeworkActiveOnDate } from "./utils/types";
+import { HomeworkItem, HomeworkInstanceOverride, KidNotificationSettings, isHomeworkActiveOnDate } from "./utils/types";
 import { isFirebaseConfigured } from "./utils/firebase";
 import {
   subscribeHomeworkItems,
@@ -19,9 +19,12 @@ import {
   updateHomeworkTime,
   updateHomeworkItemFields,
   setDeletedOverride,
-  saveTitleOverride
+  saveTitleOverride,
+  subscribeKidNotificationSettings,
+  saveKidNotificationSettings
 } from "./utils/firebaseService";
 import { registerPushNotification, unregisterPushNotification, updateAlarmPreference } from "./utils/webPush";
+import { CompletionTimeModal } from "./components/CompletionTimeModal";
 
 export default function HomeworkDiaryHome() {
   const [currentKid, setCurrentKid] = useState<"soyoon" | "somin">("soyoon");
@@ -29,6 +32,10 @@ export default function HomeworkDiaryHome() {
   const [isPushSubscribed, setIsPushSubscribed] = useState(false);
   const [alarmPreference, setAlarmPreference] = useState<"soyoon" | "somin" | "both">("both");
   
+  // 전역 완료 시간 설정 관련 상태
+  const [kidSettings, setKidSettings] = useState<KidNotificationSettings | null>(null);
+  const [isCompletionModalOpen, setIsCompletionModalOpen] = useState(false);
+
   // 핵심 상태 변수 (실시간 DB 연동 대상)
   const [homeworkItems, setHomeworkItems] = useState<HomeworkItem[]>([]);
   const [overrides, setOverrides] = useState<Record<string, Record<string, HomeworkInstanceOverride>>>({});
@@ -84,6 +91,14 @@ export default function HomeworkDiaryHome() {
       unsubscribeOverrides();
     };
   }, []);
+
+  // 3. 아이별 완료 시간 전역 설정 실시간 구독
+  useEffect(() => {
+    const unsubscribeSettings = subscribeKidNotificationSettings(currentKid, (settings) => {
+      setKidSettings(settings);
+    });
+    return () => unsubscribeSettings();
+  }, [currentKid]);
 
   // 기동 시 이미 권한이 동의되어 있고 fcm_token이 있다면 구독 상태로 표시 및 토큰 자동 갱신
   useEffect(() => {
@@ -321,8 +336,8 @@ export default function HomeworkDiaryHome() {
       if (dayOverride && dayOverride.deleted) return false;
       return true;
     })
-    // 정렬: 시간 순
-    .sort((a, b) => a.time.localeCompare(b.time));
+    // 정렬: 숙제 이름 순
+    .sort((a, b) => a.title.localeCompare(b.title));
 
   const currentKidLabel = currentKid === "soyoon" ? "소윤이" : "소민이";
 
@@ -402,24 +417,6 @@ export default function HomeworkDiaryHome() {
               const dayOverride = overrides[selectedDateStr]?.[item.id];
               const isCompleted = dayOverride ? dayOverride.completed : false;
               const comment = dayOverride?.comment;
-              const activeAlarmOption = dayOverride?.alarmOverride !== undefined 
-                ? dayOverride.alarmOverride 
-                : item.alarmOption;
-
-              // 알람 레이블 변환
-              let alarmText = "알람 없음";
-              if (activeAlarmOption && activeAlarmOption !== "none") {
-                const parts = activeAlarmOption.split(",");
-                const labels = parts.map(part => {
-                  const trimmed = part.trim();
-                  if (trimmed === "at_time") return "정시";
-                  if (trimmed === "1_hour") return "1시간 전";
-                  if (trimmed === "2_hour") return "2시간 전";
-                  if (trimmed === "3_hour") return "3시간 전";
-                  return trimmed;
-                });
-                alarmText = labels.join(", ") + " 알람";
-              }
 
               return (
                 <div key={item.id} className={`homework-item-card ${isCompleted ? "completed" : ""}`}>
@@ -453,14 +450,6 @@ export default function HomeworkDiaryHome() {
                           {dayOverride?.titleOverride || item.title}
                         </div>
                         <div className="homework-meta">
-                          <span 
-                            className="meta-badge time"
-                            style={{ cursor: "pointer" }}
-                            title="클릭하여 숙제 완료 시간을 변경하세요"
-                            onClick={() => handleEditHomeworkTime(item)}
-                          >
-                            ⏰ {item.time}
-                          </span>
                           {item.isRecurring && (
                             <span 
                               className="meta-badge recurring"
@@ -475,14 +464,6 @@ export default function HomeworkDiaryHome() {
                               🔁 매주 ({item.recurringDays.map((d) => ["일", "월", "화", "수", "목", "금", "토"][d]).join(", ")})
                             </span>
                           )}
-                          <span 
-                            className="meta-badge alarm" 
-                            style={{ cursor: "pointer" }}
-                            title="클릭하여 알람 설정을 수정하세요"
-                            onClick={() => handleOpenAlarmEdit(item)}
-                          >
-                            🔔 {alarmText} ⚙
-                          </span>
                           {!isCompleted && (
                             <span 
                               className="meta-badge comment-btn" 
@@ -571,13 +552,22 @@ export default function HomeworkDiaryHome() {
       {/* 실시간 스마트폰 알림 설정 영역 (페이지 최하단) */}
       {isFirebaseConfigured && (
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px", marginTop: "12px", marginBottom: "12px" }}>
-          <button 
-            className={`cute-btn ${currentKid === "soyoon" ? "primary-soyoon" : "primary-somin"}`}
-            style={{ fontSize: "1rem", padding: "12px 24px", borderRadius: "20px" }}
-            onClick={handleTogglePush}
-          >
-            {isPushSubscribed ? "🔕 알림 끄기" : "🔔 알림 받기"}
-          </button>
+          <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+            <button 
+              className="cute-btn"
+              style={{ fontSize: "1rem", padding: "12px 24px", borderRadius: "20px", background: "#faf8f5", borderBottomColor: "#cbd5e1" }}
+              onClick={() => setIsCompletionModalOpen(true)}
+            >
+              ⏰ 완료 시간 설정
+            </button>
+            <button 
+              className={`cute-btn ${currentKid === "soyoon" ? "primary-soyoon" : "primary-somin"}`}
+              style={{ fontSize: "1rem", padding: "12px 24px", borderRadius: "20px" }}
+              onClick={handleTogglePush}
+            >
+              {isPushSubscribed ? "🔕 알림 끄기" : "🔔 알림 받기"}
+            </button>
+          </div>
           
           {isPushSubscribed && (
             <div className="pref-selector" style={{ display: "flex", gap: "6px", alignItems: "center", fontSize: "0.9rem", color: "#4a3b32" }}>
@@ -617,154 +607,14 @@ export default function HomeworkDiaryHome() {
         defaultDate={selectedDate}
       />
 
-      {/* 알람 설정 수정 모달창 */}
-      {editingAlarm && (
-        <div className="modal-overlay" onClick={() => setEditingAlarm(null)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3 className="modal-title">🔔 알람 설정 변경</h3>
-              <button className="close-btn" onClick={() => setEditingAlarm(null)}>
-                ✖
-              </button>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">미리 알림 설정 (중복 선택 가능)</label>
-              <div className="days-select-grid" style={{ gridTemplateColumns: "repeat(4, 1fr)" }}>
-                {[
-                  { label: "정시", value: "at_time" },
-                  { label: "1시간 전", value: "1_hour" },
-                  { label: "2시간 전", value: "2_hour" },
-                  { label: "3시간 전", value: "3_hour" }
-                ].map((opt) => {
-                  const isChecked = tempAlarms.includes(opt.value);
-                  return (
-                    <label
-                      key={opt.value}
-                      className={`day-checkbox-label ${isChecked ? "checked" : ""}`}
-                      style={{ padding: "10px 2px", textAlign: "center" }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={isChecked}
-                        onChange={() => {
-                          if (isChecked) {
-                            setTempAlarms(tempAlarms.filter(a => a !== opt.value));
-                          } else {
-                            setTempAlarms([...tempAlarms, opt.value]);
-                          }
-                        }}
-                      />
-                      {opt.label}
-                    </label>
-                  );
-                })}
-              </div>
-            </div>
-
-            {editingAlarm.isRecurring && (
-              <div className="form-group" style={{ flexDirection: "row", alignItems: "center" }}>
-                <input
-                  type="checkbox"
-                  id="apply-to-all-checkbox"
-                  style={{ marginRight: "8px", width: "18px", height: "18px", cursor: "pointer" }}
-                  checked={applyToAll}
-                  onChange={(e) => setApplyToAll(e.target.checked)}
-                />
-                <label htmlFor="apply-to-all-checkbox" style={{ cursor: "pointer", fontSize: "0.95rem" }}>
-                  앞으로의 모든 반복 일정에 적용할까요?
-                </label>
-              </div>
-            )}
-            {!editingAlarm.isRecurring && (
-              <p style={{ fontSize: "0.85rem", color: "#868e96", marginBottom: "12px" }}>
-                * 단일 일정이므로 이 일정에만 즉시 적용됩니다.
-              </p>
-            )}
-
-            <div className="modal-actions">
-              <button
-                className="cute-btn"
-                onClick={() => setEditingAlarm(null)}
-                style={{ background: "#e2e8f0", borderBottomColor: "#cbd5e1" }}
-              >
-                취소
-              </button>
-              <button
-                className={`cute-btn ${currentKid === "soyoon" ? "primary-soyoon" : "primary-somin"}`}
-                onClick={handleSaveAlarmConfig}
-              >
-                변경 완료 🎉
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 숙제 시간 변경 모달창 */}
-      {editingTime && (
-        <div className="modal-overlay" onClick={() => setEditingTime(null)}>
-          <div 
-            className={`modal-content ${currentKid === 'soyoon' ? 'theme-soyoon' : 'theme-somin'}`}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="modal-header">
-              <h3 className="modal-title">⏰ 숙제 시간 변경</h3>
-              <button className="close-btn" onClick={() => setEditingTime(null)}>
-                ✖
-              </button>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label" style={{ fontSize: "1.1rem" }}>✍ {editingTime.title}</label>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">⏰ 숙제 완료 시간</label>
-              <input
-                type="time"
-                className="form-input"
-                value={editingTime.time}
-                onChange={(e) => setEditingTime({ ...editingTime, time: e.target.value })}
-                required
-              />
-            </div>
-
-            <div className="modal-actions">
-              <button
-                type="button"
-                className="cute-btn"
-                onClick={() => setEditingTime(null)}
-                style={{ background: "#e2e8f0", borderBottomColor: "#cbd5e1" }}
-              >
-                취소
-              </button>
-              <button
-                type="button"
-                className={`cute-btn ${currentKid === "soyoon" ? "primary-soyoon" : "primary-somin"}`}
-                onClick={async () => {
-                  const newTime = editingTime.time.trim();
-                  const timeReg = /^([01]\d|2[0-3]):[0-5]\d$/;
-                  if (!timeReg.test(newTime)) {
-                    alert("올바른 시간 형식(HH:MM)으로 입력해 주세요. (예: 14:30)");
-                    return;
-                  }
-                  try {
-                    await updateHomeworkTime(editingTime.itemId, newTime);
-                    alert("숙제 시간이 성공적으로 변경되었습니다. ⏰");
-                  } catch (e) {
-                    console.error(e);
-                    alert("숙제 시간 변경에 실패했습니다.");
-                  }
-                  setEditingTime(null);
-                }}
-              >
-                변경 완료 🎉
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* 요일별 완료 예정 시간 설정 모달창 */}
+      <CompletionTimeModal
+        isOpen={isCompletionModalOpen}
+        onClose={() => setIsCompletionModalOpen(false)}
+        kid={currentKid}
+        initialSettings={kidSettings}
+        onSave={saveKidNotificationSettings}
+      />
 
       {/* 반복 요일 변경 모달창 */}
       {editingRecurring && (

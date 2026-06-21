@@ -9,9 +9,22 @@ import {
   writeBatch
 } from "firebase/firestore";
 import { db, isFirebaseConfigured } from "./firebase";
-import { HomeworkItem, HomeworkInstanceOverride } from "./types";
+import { HomeworkItem, HomeworkInstanceOverride, KidNotificationSettings } from "./types";
 
 // 기본 더미 데이터 정의 (로컬스토리지 전용 초기값)
+const DEFAULT_SETTINGS = (kid: 'soyoon' | 'somin'): KidNotificationSettings => ({
+  kid,
+  weeklyCompletionTimes: Array(7).fill("18:00")
+});
+
+type HomeworkCallback = (items: HomeworkItem[]) => void;
+type OverridesCallback = (overrides: Record<string, Record<string, HomeworkInstanceOverride>>) => void;
+type SettingsCallback = (settings: KidNotificationSettings) => void;
+
+const homeworkListeners = new Set<HomeworkCallback>();
+const overridesListeners = new Set<OverridesCallback>();
+const settingsListeners = new Set<SettingsCallback>();
+
 const DEFAULT_HOMEWORK: HomeworkItem[] = [
   {
     id: "dummy-1",
@@ -55,12 +68,16 @@ const DEFAULT_HOMEWORK: HomeworkItem[] = [
   }
 ];
 
-// 로컬 저장소 폴백용 Pub/Sub 이벤트 리스너 정의 (실시간 다중 연동 효과 연출)
-type HomeworkCallback = (items: HomeworkItem[]) => void;
-type OverridesCallback = (overrides: Record<string, Record<string, HomeworkInstanceOverride>>) => void;
-
-const homeworkListeners = new Set<HomeworkCallback>();
-const overridesListeners = new Set<OverridesCallback>();
+function getLocalSettings(kid: 'soyoon' | 'somin'): KidNotificationSettings {
+  if (typeof window === "undefined") return DEFAULT_SETTINGS(kid);
+  const stored = localStorage.getItem(`kid_settings_${kid}`);
+  if (stored) {
+    return JSON.parse(stored);
+  }
+  const defaultVal = DEFAULT_SETTINGS(kid);
+  localStorage.setItem(`kid_settings_${kid}`, JSON.stringify(defaultVal));
+  return defaultVal;
+}
 
 // 로컬 데이터 읽기 헬퍼
 function getLocalHomework(): HomeworkItem[] {
@@ -87,6 +104,11 @@ function notifyHomeworkListeners(items: HomeworkItem[]) {
 function notifyOverridesListeners(ovs: Record<string, Record<string, HomeworkInstanceOverride>>) {
   overridesListeners.forEach(cb => cb(ovs));
 }
+
+function notifySettingsListeners(settings: KidNotificationSettings) {
+  settingsListeners.forEach(cb => cb(settings));
+}
+
 
 /**
  * 1. 숙제 목록 실시간 구독
@@ -448,6 +470,56 @@ export async function setDeletedOverride(
     notifyOverridesListeners(ovs);
   }
 }
+
+/**
+ * 14. 아이별 숙제 완료 시간 전역 설정 실시간 구독
+ */
+export function subscribeKidNotificationSettings(
+  kid: 'soyoon' | 'somin',
+  callback: (settings: KidNotificationSettings) => void
+): () => void {
+  if (isFirebaseConfigured && db) {
+    const docRef = doc(db, "notification_settings", kid);
+    return onSnapshot(docRef, (snapshot) => {
+      if (snapshot.exists()) {
+        callback(snapshot.data() as KidNotificationSettings);
+      } else {
+        const defaultVal = DEFAULT_SETTINGS(kid);
+        setDoc(docRef, defaultVal).then(() => {
+          callback(defaultVal);
+        }).catch(err => console.error("기본 설정 저장 실패:", err));
+      }
+    }, (error) => {
+      console.error(`${kid} 설정 구독 중 에러 발생:`, error);
+    });
+  } else {
+    // 로컬스토리지 구독
+    const wrapper = (settings: KidNotificationSettings) => {
+      if (settings.kid === kid) {
+        callback(settings);
+      }
+    };
+    settingsListeners.add(wrapper);
+    callback(getLocalSettings(kid));
+    return () => {
+      settingsListeners.delete(wrapper);
+    };
+  }
+}
+
+/**
+ * 15. 아이별 숙제 완료 시간 전역 설정 저장
+ */
+export async function saveKidNotificationSettings(settings: KidNotificationSettings): Promise<void> {
+  if (isFirebaseConfigured && db) {
+    const docRef = doc(db, "notification_settings", settings.kid);
+    await setDoc(docRef, settings, { merge: true });
+  } else {
+    localStorage.setItem(`kid_settings_${settings.kid}`, JSON.stringify(settings));
+    notifySettingsListeners(settings);
+  }
+}
+
 
 /**
  * 13. 특정 날짜의 숙제 이름(타이틀) 오버라이드 저장
