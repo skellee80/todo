@@ -589,33 +589,32 @@ export default function HomeworkDiaryHome() {
 
       {/* 실시간 스마트폰 알림 설정 영역 (페이지 최하단) */}
       {isFirebaseConfigured && (
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px", marginTop: "12px", marginBottom: "12px" }}>
-          <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-            <button 
-              className="cute-btn"
-              style={{ fontSize: "1rem", padding: "12px 24px", borderRadius: "20px", background: "#faf8f5", borderBottomColor: "#cbd5e1" }}
-              onClick={() => setIsCompletionModalOpen(true)}
-            >
-              ⏰ 완료 시간 설정
-            </button>
-          </div>
+        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "10px", marginTop: "12px", marginBottom: "12px", flexWrap: "wrap" }}>
+          <button 
+            className="cute-btn"
+            style={{ fontSize: "1rem", padding: "12px 24px", borderRadius: "20px", background: "#faf8f5", borderBottomColor: "#cbd5e1" }}
+            onClick={() => setIsCompletionModalOpen(true)}
+          >
+            ⏰ 완료 시간 설정
+          </button>
           
-          <div className="pref-selector" style={{ display: "flex", gap: "8px", alignItems: "center", fontSize: "0.95rem", color: "#4a3b32", marginTop: "4px" }}>
+          {currentKid === "soyoon" ? (
             <button 
               className={`cute-btn ${(alarmPreference === "soyoon" || alarmPreference === "both") ? "primary-soyoon" : ""}`}
-              style={{ padding: "8px 16px", fontSize: "0.9rem", borderRadius: "16px" }}
+              style={{ padding: "12px 24px", fontSize: "1rem", borderRadius: "20px" }}
               onClick={() => handleToggleKidPreference("soyoon")}
             >
               🌸 소윤이 알림 {(alarmPreference === "soyoon" || alarmPreference === "both") ? "ON" : "OFF"}
             </button>
+          ) : (
             <button 
               className={`cute-btn ${(alarmPreference === "somin" || alarmPreference === "both") ? "primary-somin" : ""}`}
-              style={{ padding: "8px 16px", fontSize: "0.9rem", borderRadius: "16px" }}
+              style={{ padding: "12px 24px", fontSize: "1rem", borderRadius: "20px" }}
               onClick={() => handleToggleKidPreference("somin")}
             >
               💧 소민이 알림 {(alarmPreference === "somin" || alarmPreference === "both") ? "ON" : "OFF"}
             </button>
-          </div>
+          )}
         </div>
       )}
 

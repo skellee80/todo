@@ -60,7 +60,7 @@ body.theme-somin {
 
 .app-title {
   font-family: 'Jua', sans-serif;
-  font-size: 1.1rem;
+  font-size: 1.65rem;
   color: #4a3b32;
   text-shadow: 2px 2px 0px #ffffff, 4px 4px 0px rgba(0,0,0,0.05);
   display: flex;
@@ -906,7 +906,7 @@ body.theme-somin {
     gap: 16px;
   }
   .app-title {
-    font-size: 0.9rem;
+    font-size: 1.35rem;
   }
   .app-subtitle {
     font-size: 1.1rem;
