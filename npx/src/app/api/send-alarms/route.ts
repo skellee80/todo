@@ -171,7 +171,7 @@ export async function GET(req: NextRequest) {
               icon: "/favicon.ico",
               badge: "/favicon.ico"
             },
-            fcm_options: {
+            fcmOptions: {
               link: `${origin}/`
             }
           },

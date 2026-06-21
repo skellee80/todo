@@ -64,10 +64,11 @@ importScripts('https://www.gstatic.com/firebasejs/9.22.1/firebase-messaging-comp
 
 // 서비스 워커 등록 시 전달받은 URL 쿼리 스트링 파싱
 const params = new URLSearchParams(location.search);
-const apiKey = params.get('apiKey');
-const projectId = params.get('projectId');
-const appId = params.get('appId');
-const messagingSenderId = params.get('messagingSenderId');
+// 폴백(Default) 자격증명을 하드코딩하여 서비스 워커 기동 무결성을 보장합니다.
+const apiKey = params.get('apiKey') || 'AIzaSyDSAh3pDUxzUAz72vseYK6cQSob5Lcy6Gk';
+const projectId = params.get('projectId') || 'sosohomwork';
+const appId = params.get('appId') || '1:343328000049:web:8a7174514946402a10ad10';
+const messagingSenderId = params.get('messagingSenderId') || '343328000049';
 
 if (apiKey && projectId && messagingSenderId) {
   firebase.initializeApp({
@@ -85,8 +86,12 @@ if (apiKey && projectId && messagingSenderId) {
     
     const title = payload.notification?.title || '⏰ 숙제 다이어리 알림';
     const body = payload.notification?.body || '오늘 완료할 숙제가 있습니다.';
-    const icon = payload.notification?.image || payload.data?.icon || '/favicon.ico';
-    const badge = '/favicon.ico';
+    
+    // 상대 경로 이미지인 경우 모바일 OS 노티바에서 렌더링에 실패하므로 절대 경로(Origin 추가)로 강제 변환합니다.
+    const rawIcon = payload.notification?.image || payload.data?.icon || '/favicon.ico';
+    const icon = rawIcon.startsWith('http') ? rawIcon : (self.location.origin + (rawIcon.startsWith('/') ? '' : '/') + rawIcon);
+    const badge = self.location.origin + '/favicon.ico';
+    
     const link = payload.data?.link || payload.notification?.click_action || '/';
 
     const notificationOptions = {
