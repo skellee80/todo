@@ -68,8 +68,9 @@ export async function registerPushNotification(preference: "soyoon" | "somin" | 
         alarmPreference: preference
       }, { merge: true });
 
-      // 로컬 스토리지에 토큰 백업 저장 (해제할 때 사용)
+      // 로컬 스토리지에 토큰 백업 저장 (해제할 때 사용) 및 수신 선호 타겟 저장
       localStorage.setItem("fcm_token", token);
+      localStorage.setItem("alarm_preference", preference);
 
       console.log("기기 토큰 Firestore 등록 완료:", token);
       return token;

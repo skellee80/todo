@@ -170,9 +170,13 @@ export default function HomeworkDiaryHome() {
 
     try {
       if (nextPref === "none") {
-        const success = await unregisterPushNotification();
+        let success = true;
+        if (isFirebaseConfigured) {
+          success = await unregisterPushNotification();
+        }
         if (success) {
           setAlarmPreference("none" as any); // 내부 관리 편의를 위해 'none' 세팅
+          localStorage.setItem("alarm_preference", "none");
           setIsPushSubscribed(false);
           alert("모든 실시간 알림 수신이 해제되었습니다. 🔕");
         } else {
@@ -180,7 +184,14 @@ export default function HomeworkDiaryHome() {
         }
       } else {
         // 새로 등록 혹은 갱신
-        const token = await registerPushNotification(nextPref);
+        let token: string | null = "local_mock_token";
+        if (isFirebaseConfigured) {
+          token = await registerPushNotification(nextPref);
+        } else {
+          // 로컬 데모 모드일 때는 스토리지를 직접 갱신하여 로컬 브라우저 알람 팝업 구동 보장
+          localStorage.setItem("alarm_preference", nextPref);
+        }
+
         if (token) {
           setAlarmPreference(nextPref);
           setIsPushSubscribed(true);
