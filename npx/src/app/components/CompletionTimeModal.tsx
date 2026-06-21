@@ -60,9 +60,9 @@ export function CompletionTimeModal({
         weeklyCompletionTimes: times,
       });
       onClose();
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert("시간 저장 도중 에러가 발생했습니다.");
+      alert(`시간 설정 서버 동기화에 실패했습니다. 다른 기기로 동기화되지 않을 수 있습니다.\n원인: ${err?.message || err}`);
     } finally {
       setIsSaving(false);
     }

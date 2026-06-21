@@ -537,6 +537,7 @@ export async function saveKidNotificationSettings(settings: KidNotificationSetti
     }
   } catch (err) {
     console.error("Firestore 저장 실패, 로컬에 백업합니다:", err);
+    throw err;
   } finally {
     // 파이어베이스에 상관없이 로컬에 무조건 저장하여 저장 오류 팝업 발생 차단
     localStorage.setItem(`kid_settings_${settings.kid}`, JSON.stringify(settings));
