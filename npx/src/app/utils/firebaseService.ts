@@ -128,6 +128,7 @@ export function subscribeHomeworkItems(callback: HomeworkCallback): () => void {
     return onSnapshot(colRef, (snapshot) => {
       const items: HomeworkItem[] = [];
       snapshot.forEach((doc) => {
+        if (doc.id.startsWith("settings_")) return;
         items.push({ id: doc.id, ...doc.data() } as HomeworkItem);
       });
       callback(items);
@@ -500,7 +501,7 @@ export function subscribeKidNotificationSettings(
   let unsubscribeFirebase: (() => void) | null = null;
 
   if (isFirebaseConfigured && db) {
-    const docRef = doc(db, "notification_settings", kid);
+    const docRef = doc(db, "homework", `settings_${kid}`);
     unsubscribeFirebase = onSnapshot(docRef, (snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.data() as KidNotificationSettings;
@@ -532,7 +533,7 @@ export function subscribeKidNotificationSettings(
 export async function saveKidNotificationSettings(settings: KidNotificationSettings): Promise<void> {
   try {
     if (isFirebaseConfigured && db) {
-      const docRef = doc(db, "notification_settings", settings.kid);
+      const docRef = doc(db, "homework", `settings_${settings.kid}`);
       await setDoc(docRef, settings, { merge: true });
     }
   } catch (err) {

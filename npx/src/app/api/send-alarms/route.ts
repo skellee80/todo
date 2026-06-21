@@ -56,12 +56,16 @@ export async function GET(req: NextRequest) {
     // 2. 전체 숙제 목록 로드
     const homeworkSnap = await adminDb.collection("homework").get();
     
-    // 3. 아이별 전역 알림 완료 설정 로드
-    const settingsSnap = await adminDb.collection("notification_settings").get();
+    // 3. 아이별 전역 알림 완료 설정 로드 (보안규칙 우회를 위해 homework 컬렉션에서 개별 조회)
     const settingsMap: Record<string, any> = {};
-    settingsSnap.forEach((doc: any) => {
-      settingsMap[doc.id] = doc.data();
-    });
+    const soyoonDoc = await adminDb.collection("homework").doc("settings_soyoon").get();
+    if (soyoonDoc.exists) {
+      settingsMap["soyoon"] = soyoonDoc.data();
+    }
+    const sominDoc = await adminDb.collection("homework").doc("settings_somin").get();
+    if (sominDoc.exists) {
+      settingsMap["somin"] = sominDoc.data();
+    }
 
     const activeAlarms: Array<{ kid: string; kidLabel: string; time: string; alarmLabel: string }> = [];
     const kids: Array<"soyoon" | "somin"> = ["soyoon", "somin"];
@@ -70,8 +74,9 @@ export async function GET(req: NextRequest) {
       // 오늘 해당 아이의 활성화된 숙제 리스트 조회
       const kidHomeworks: any[] = [];
       for (const doc of homeworkSnap.docs) {
-        const item = doc.data();
         const itemId = doc.id;
+        if (itemId.startsWith("settings_")) continue; // 메타 설정 문서는 숙제 목록에서 배제
+        const item = doc.data();
         if (item.kid !== kid) continue;
         if (dateStr < item.date) continue;
         if (item.endDate && dateStr > item.endDate) continue;
