@@ -519,7 +519,7 @@ export default function HomeworkDiaryHome() {
                           onClick={() => handleToggleComplete(item.id, isCompleted, 'great')}
                           title="참 잘했어요!"
                         >
-                          💮
+                          👍
                         </button>
                         <button
                           type="button"
@@ -527,7 +527,7 @@ export default function HomeworkDiaryHome() {
                           onClick={() => handleToggleComplete(item.id, isCompleted, 'sad')}
                           title="아쉬워요!"
                         >
-                          😢
+                          🌧️
                         </button>
                       </div>
 

@@ -279,7 +279,7 @@ export function CalendarView({
                           : "pending"
                       }`}
                     >
-                      {isCompleted && stampType === 'sad' && '😢 '}{cleanTitle}
+                      {isCompleted && stampType === 'sad' && '🌧️ '}{cleanTitle}
                     </div>
                   );
                 })}

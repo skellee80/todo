@@ -592,7 +592,7 @@ export async function saveTitleOverride(
  */
 export function subscribeNotice(callback: NoticeCallback): () => void {
   if (isFirebaseConfigured && db) {
-    const docRef = doc(db, "notices", "family");
+    const docRef = doc(db, "homework", "settings_family_notice");
     return onSnapshot(docRef, (snapshot) => {
       if (snapshot.exists()) {
         callback(snapshot.data().content || "");
@@ -616,7 +616,7 @@ export function subscribeNotice(callback: NoticeCallback): () => void {
  */
 export async function saveNotice(content: string): Promise<void> {
   if (isFirebaseConfigured && db) {
-    const docRef = doc(db, "notices", "family");
+    const docRef = doc(db, "homework", "settings_family_notice");
     await setDoc(docRef, { 
       content, 
       updatedAt: Date.now() 

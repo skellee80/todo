@@ -1071,27 +1071,48 @@ body.theme-somin {
   box-shadow: 0 4px 10px rgba(28, 126, 214, 0.2);
 }
 
-/* 공지사항 메모장 카드 */
+/* 공지사항 메모장 카드 (아기자기한 포스트잇 모양) */
 .notice-section {
-  background: #fffdf5; /* warm soft yellow notepad background */
-  border: 2px solid #f2e2cf;
+  background: #fffbe0; /* 따뜻하고 부드러운 포스트잇 노란색 */
+  border: 1px solid #fde7ad;
+  box-shadow: 3px 3px 12px rgba(93, 64, 55, 0.08); /* 귀여운 그림자 */
   display: flex;
   flex-direction: column;
   gap: 12px;
+  position: relative;
+  border-radius: 16px;
+  padding: 28px 16px 16px 16px; /* 테이프 장식을 위한 여백 */
+}
+
+/* 포스트잇 고정 마스킹 테이프 장식 */
+.notice-section::before {
+  content: '';
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%) rotate(-1deg);
+  width: 70px;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.7);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  backdrop-filter: blur(1px);
+  border-left: 1px dashed rgba(0, 0, 0, 0.1);
+  border-right: 1px dashed rgba(0, 0, 0, 0.1);
+  z-index: 10;
 }
 
 .notice-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 2px dashed #f5e8d8;
+  border-bottom: 2px dashed #f6ecc4;
   padding-bottom: 8px;
 }
 
 .notice-title {
   font-family: 'Jua', sans-serif;
   font-size: 1.25rem;
-  color: #5d4037;
+  color: #795548;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -1099,31 +1120,30 @@ body.theme-somin {
 
 .notice-sync-badge {
   font-size: 0.75rem;
-  color: #8c786c;
-  background: #fdf2e9;
+  color: #8d6e63;
+  background: #fffdf0;
   padding: 2px 8px;
   border-radius: 10px;
-  border: 1px solid #fadbd8;
+  border: 1px solid #f6ecc4;
 }
 
 .notice-textarea {
   width: 100%;
-  border: 2px solid #e3d5ca;
-  border-radius: 16px;
+  border: 2px solid #fcdb7d;
+  border-radius: 14px;
   padding: 12px;
   font-family: 'Gamja Flower', sans-serif;
   font-size: 1.25rem;
   outline: none;
   background-color: #ffffff;
   resize: vertical;
-  line-height: 28px;
+  line-height: 1.5;
   color: #5d4037;
-  background-image: linear-gradient(rgba(0,0,0,0) 27px, #e3d5ca 27px);
-  background-size: 100% 28px;
 }
 
 .notice-textarea:focus {
-  border-color: #d5bdaf;
+  border-color: #fcc419;
+  box-shadow: 0 0 0 3px rgba(253, 216, 53, 0.15);
 }
 
 .notice-actions {
@@ -1135,9 +1155,9 @@ body.theme-somin {
 
 .notice-display {
   cursor: pointer;
-  padding: 12px 14px;
+  padding: 8px 12px;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.25);
   transition: all 0.2s ease;
   min-height: 80px;
   display: flex;
@@ -1147,15 +1167,15 @@ body.theme-somin {
 }
 
 .notice-display:hover {
-  background: rgba(255, 255, 255, 0.8);
-  border-color: #d5bdaf;
+  background: rgba(255, 255, 255, 0.6);
+  border-color: #fde7ad;
   transform: translateY(-1px);
 }
 
 .notice-text-content {
   font-family: 'Gamja Flower', sans-serif;
   font-size: 1.25rem;
-  line-height: 1.6;
+  line-height: 1.5;
   color: #5d4037;
   white-space: pre-wrap;
   word-break: break-all;
