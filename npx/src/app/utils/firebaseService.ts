@@ -20,10 +20,16 @@ const DEFAULT_SETTINGS = (kid: 'soyoon' | 'somin'): KidNotificationSettings => (
 type HomeworkCallback = (items: HomeworkItem[]) => void;
 type OverridesCallback = (overrides: Record<string, Record<string, HomeworkInstanceOverride>>) => void;
 type SettingsCallback = (settings: KidNotificationSettings) => void;
+type NoticeCallback = (content: string) => void;
 
 const homeworkListeners = new Set<HomeworkCallback>();
 const overridesListeners = new Set<OverridesCallback>();
 const settingsListeners = new Set<SettingsCallback>();
+const noticeListeners = new Set<NoticeCallback>();
+
+function notifyNoticeListeners(content: string) {
+  noticeListeners.forEach(cb => cb(content));
+}
 
 const DEFAULT_HOMEWORK: HomeworkItem[] = [
   {
@@ -245,7 +251,8 @@ export async function deleteHomeworkItem(itemId: string): Promise<void> {
 export async function toggleCompleteOverride(
   itemId: string, 
   dateStr: string, 
-  completed: boolean
+  completed: boolean,
+  stampType?: 'great' | 'sad'
 ): Promise<void> {
   const docId = `${dateStr}_${itemId}`;
 
@@ -254,7 +261,8 @@ export async function toggleCompleteOverride(
     await setDoc(docRef, {
       homeworkId: itemId,
       date: dateStr,
-      completed: completed
+      completed: completed,
+      stampType: completed ? (stampType || 'great') : deleteField()
     }, { merge: true });
   } else {
     const ovs = getLocalOverrides();
@@ -263,7 +271,8 @@ export async function toggleCompleteOverride(
     }
     ovs[dateStr][itemId] = {
       ...(ovs[dateStr][itemId] || { homeworkId: itemId, date: dateStr }),
-      completed: completed
+      completed: completed,
+      stampType: completed ? (stampType || 'great') : undefined
     };
     localStorage.setItem("homework_overrides", JSON.stringify(ovs));
     notifyOverridesListeners(ovs);
@@ -575,5 +584,47 @@ export async function saveTitleOverride(
     };
     localStorage.setItem("homework_overrides", JSON.stringify(ovs));
     notifyOverridesListeners(ovs);
+  }
+}
+
+/**
+ * 16. 가족 공지사항 실시간 구독
+ */
+export function subscribeNotice(callback: NoticeCallback): () => void {
+  if (isFirebaseConfigured && db) {
+    const docRef = doc(db, "notices", "family");
+    return onSnapshot(docRef, (snapshot) => {
+      if (snapshot.exists()) {
+        callback(snapshot.data().content || "");
+      } else {
+        callback("");
+      }
+    }, (error) => {
+      console.error("공지사항 구독 중 에러 발생:", error);
+    });
+  } else {
+    noticeListeners.add(callback);
+    callback(typeof window !== "undefined" ? localStorage.getItem("family_notice") || "" : "");
+    return () => {
+      noticeListeners.delete(callback);
+    };
+  }
+}
+
+/**
+ * 17. 가족 공지사항 저장
+ */
+export async function saveNotice(content: string): Promise<void> {
+  if (isFirebaseConfigured && db) {
+    const docRef = doc(db, "notices", "family");
+    await setDoc(docRef, { 
+      content, 
+      updatedAt: Date.now() 
+    });
+  } else {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("family_notice", content);
+      notifyNoticeListeners(content);
+    }
   }
 }

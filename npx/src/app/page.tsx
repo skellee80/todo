@@ -21,7 +21,9 @@ import {
   setDeletedOverride,
   saveTitleOverride,
   subscribeKidNotificationSettings,
-  saveKidNotificationSettings
+  saveKidNotificationSettings,
+  subscribeNotice,
+  saveNotice
 } from "./utils/firebaseService";
 import { registerPushNotification, unregisterPushNotification, updateAlarmPreference } from "./utils/webPush";
 import { CompletionTimeModal } from "./components/CompletionTimeModal";
@@ -39,6 +41,11 @@ export default function HomeworkDiaryHome() {
   // 핵심 상태 변수 (실시간 DB 연동 대상)
   const [homeworkItems, setHomeworkItems] = useState<HomeworkItem[]>([]);
   const [overrides, setOverrides] = useState<Record<string, Record<string, HomeworkInstanceOverride>>>({});
+  
+  // 공지사항 메모장 관련 상태
+  const [noticeContent, setNoticeContent] = useState("");
+  const [isEditingNotice, setIsEditingNotice] = useState(false);
+  const [tempNotice, setTempNotice] = useState("");
   
   // 모달 제어 상태 변수
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -91,6 +98,17 @@ export default function HomeworkDiaryHome() {
       unsubscribeOverrides();
     };
   }, []);
+
+  // 2.5 가족 공지사항 실시간 구독
+  useEffect(() => {
+    const unsubscribeNotice = subscribeNotice((content) => {
+      if (!isEditingNotice) {
+        setNoticeContent(content);
+        setTempNotice(content);
+      }
+    });
+    return () => unsubscribeNotice();
+  }, [isEditingNotice]);
 
   // 3. 아이별 완료 시간 전역 설정 실시간 구독
   useEffect(() => {
@@ -279,10 +297,19 @@ export default function HomeworkDiaryHome() {
 
 
 
-  // 완료 상태 토글 처리 (서비스 위임)
-  const handleToggleComplete = async (itemId: string, currentCompleted: boolean) => {
+  // 완료 상태 토글 및 스탬프 지정 처리
+  const handleToggleComplete = async (itemId: string, currentCompleted: boolean, stampType: 'great' | 'sad') => {
     try {
-      await toggleCompleteOverride(itemId, selectedDateStr, !currentCompleted);
+      const dayOverride = overrides[selectedDateStr]?.[itemId];
+      const currentStampType = dayOverride?.stampType || 'great';
+
+      if (currentCompleted && currentStampType === stampType) {
+        // 이미 해당 스탬프로 완료되었으면 체크 해제
+        await toggleCompleteOverride(itemId, selectedDateStr, false);
+      } else {
+        // 새로 체크하거나 다른 스탬프로 변경
+        await toggleCompleteOverride(itemId, selectedDateStr, true, stampType);
+      }
     } catch (e) {
       console.error("상태 토글 실패:", e);
     }
@@ -472,25 +499,37 @@ export default function HomeworkDiaryHome() {
             activeHomeworkList.map((item) => {
               const dayOverride = overrides[selectedDateStr]?.[item.id];
               const isCompleted = dayOverride ? dayOverride.completed : false;
+              const stampType = dayOverride?.stampType || 'great';
               const comment = dayOverride?.comment;
 
               return (
                 <div key={item.id} className={`homework-item-card ${isCompleted ? "completed" : ""}`}>
-                  {/* 참 잘했어요 도장 도장 */}
-                  <div className="stamp-overlay">참 잘했어요!</div>
+                  {/* 참 잘했어요 또는 아쉬워요 도장 도장 */}
+                  <div className={`stamp-overlay ${stampType}`}>
+                    {stampType === 'sad' ? '아쉬워요!' : '참 잘했어요!'}
+                  </div>
 
                   <div className="homework-main-row">
                     <div className="homework-left">
-                      {/* 완료 토글용 예쁜 체크박스 */}
-                      <label className="cute-checkbox-label">
-                        <input
-                          type="checkbox"
-                          className="cute-checkbox"
-                          checked={isCompleted}
-                          onChange={() => handleToggleComplete(item.id, isCompleted)}
-                        />
-                        <span className="checkmark"></span>
-                      </label>
+                      {/* 완료 스탬프 선택기 */}
+                      <div className="stamp-selector-buttons">
+                        <button
+                          type="button"
+                          className={`stamp-select-btn great ${isCompleted && stampType === 'great' ? 'active' : ''}`}
+                          onClick={() => handleToggleComplete(item.id, isCompleted, 'great')}
+                          title="참 잘했어요!"
+                        >
+                          💮
+                        </button>
+                        <button
+                          type="button"
+                          className={`stamp-select-btn sad ${isCompleted && stampType === 'sad' ? 'active' : ''}`}
+                          onClick={() => handleToggleComplete(item.id, isCompleted, 'sad')}
+                          title="아쉬워요!"
+                        >
+                          😢
+                        </button>
+                      </div>
 
                       {/* 숙제 상세 내용 */}
                       <div className="homework-info">
@@ -637,6 +676,71 @@ export default function HomeworkDiaryHome() {
           )}
         </div>
       )}
+
+      {/* 공지사항 / 메모장 영역 */}
+      <section className="cute-card notice-section" style={{ marginTop: "24px" }}>
+        <div className="notice-header">
+          <h3 className="notice-title">📌 가족 공지사항 & 메모장</h3>
+          <span className="notice-sync-badge">☁️ 실시간 동기화</span>
+        </div>
+        
+        {isEditingNotice ? (
+          <div className="notice-editor">
+            <textarea
+              className="notice-textarea"
+              value={tempNotice}
+              onChange={(e) => setTempNotice(e.target.value)}
+              placeholder="여기에 가족들에게 공유할 공지사항이나 메모를 입력해 보세요..."
+              rows={4}
+              maxLength={1000}
+            />
+            <div className="notice-actions">
+              <button 
+                type="button"
+                className="cute-btn"
+                style={{ background: "#cbd5e1", borderBottomColor: "#94a3b8" }}
+                onClick={() => {
+                  setTempNotice(noticeContent);
+                  setIsEditingNotice(false);
+                }}
+              >
+                취소
+              </button>
+              <button 
+                type="button"
+                className={`cute-btn ${currentKid === 'soyoon' ? 'primary-soyoon' : 'primary-somin'}`}
+                onClick={async () => {
+                  try {
+                    await saveNotice(tempNotice);
+                    setIsEditingNotice(false);
+                  } catch (e) {
+                    console.error("공지사항 저장 실패:", e);
+                    alert("저장에 실패했습니다.");
+                  }
+                }}
+              >
+                저장 완료 🎉
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="notice-display" onClick={() => {
+            setTempNotice(noticeContent);
+            setIsEditingNotice(true);
+          }} title="클릭하여 수정하기">
+            {noticeContent ? (
+              <div className="notice-text-content">
+                {noticeContent.split("\n").map((line, idx) => (
+                  <p key={idx}>{line || <br />}</p>
+                ))}
+              </div>
+            ) : (
+              <p className="notice-placeholder">✏️ 등록된 공지사항이 없습니다. 이곳을 클릭하여 첫 메모를 작성해보세요!</p>
+            )}
+            <div className="notice-edit-hint">✏️ 클릭하여 수정하기</div>
+          </div>
+        )}
+      </section>
 
       {/* 숙제 등록 모달창 */}
       <HomeworkModal

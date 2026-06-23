@@ -241,12 +241,21 @@ export function CalendarView({
             return dayOverride ? dayOverride.completed : false;
           });
 
+          const hasSadComplete = activeHomework.some((item) => {
+            const dayOverride = overrides[key]?.[item.id];
+            return dayOverride?.completed && dayOverride?.stampType === 'sad';
+          });
+ 
           return (
             <div
               key={key}
               className={`calendar-day-cell ${!isCurrentMonth ? "other-month" : ""} ${
                 isToday ? "today" : ""
-              } ${isSelected ? "selected" : ""} ${isRedDay ? "red-day" : ""} ${isAllCompleted ? "all-completed" : ""}`}
+              } ${isSelected ? "selected" : ""} ${isRedDay ? "red-day" : ""} ${
+                isAllCompleted 
+                  ? (hasSadComplete ? "all-completed-with-sad" : "all-completed-perfect") 
+                  : ""
+              }`}
               onClick={() => setSelectedDate(date)}
             >
               <div className="day-number">{date.getDate()}</div>
@@ -256,6 +265,7 @@ export function CalendarView({
                 {activeHomework.slice(0, 3).map((item) => {
                   const dayOverride = overrides[key]?.[item.id];
                   const isCompleted = dayOverride ? dayOverride.completed : false;
+                  const stampType = dayOverride?.stampType;
                   const finalTitle = dayOverride?.titleOverride || item.title;
                   
                   // 이모지 및 체크 표시 접두사 제거
@@ -263,9 +273,13 @@ export function CalendarView({
                   return (
                     <div
                       key={item.id}
-                      className={`day-preview-item ${isCompleted ? "completed" : "pending"}`}
+                      className={`day-preview-item ${
+                        isCompleted 
+                          ? (stampType === 'sad' ? "completed-sad" : "completed-great") 
+                          : "pending"
+                      }`}
                     >
-                      {cleanTitle}
+                      {isCompleted && stampType === 'sad' && '😢 '}{cleanTitle}
                     </div>
                   );
                 })}
